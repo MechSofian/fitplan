@@ -391,26 +391,35 @@ async function openDemo(nom) {
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
 
-  // Tentative wger.de (images libres)
+  // Tentative wger.de — recherche par nom partiel puis images filtrées par exercice
   const term = encodeURIComponent(EXERCISE_EN[nom] ?? nom);
   try {
-    const res = await fetch(`https://wger.de/api/v2/exerciseimage/?format=json&limit=3`, { signal: AbortSignal.timeout(4000) });
-    if (!res.ok) throw new Error('wger unavailable');
-    // wger search via exerciseinfo endpoint
-    const searchRes = await fetch(`https://wger.de/api/v2/exercise/?format=json&language=2&name=${term}`, { signal: AbortSignal.timeout(4000) });
+    // 1. Trouver l'exercice par nom (partial match)
+    const searchRes = await fetch(
+      `https://wger.de/api/v2/exercise/?format=json&language=2&name__icontains=${term}&limit=1`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!searchRes.ok) throw new Error('wger unavailable');
     const searchData = await searchRes.json();
-    const exId = searchData.results?.[0]?.id;
-    if (exId) {
-      const imgRes  = await fetch(`https://wger.de/api/v2/exerciseimage/?exercise_base=${exId}&format=json`, { signal: AbortSignal.timeout(4000) });
-      const imgData = await imgRes.json();
-      if (imgData.results?.length > 0) {
-        body.innerHTML = `
-          <div class="modal-images">
-            ${imgData.results.map(img => `<img src="${img.image}" alt="${nom}" loading="lazy"/>`).join('')}
-          </div>
-          <p class="modal-source">Source : wger.de</p>`;
-        return;
-      }
+
+    // exercise_base = identifiant de la fiche exercice (différent de id qui est la traduction)
+    const baseId = searchData.results?.[0]?.exercise_base;
+    if (!baseId) throw new Error('exercise not found');
+
+    // 2. Récupérer les images associées à cet exercice précis, max 2
+    const imgRes  = await fetch(
+      `https://wger.de/api/v2/exerciseimage/?exercise_base_id=${baseId}&format=json&limit=2`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    const imgData = await imgRes.json();
+
+    if (imgData.results?.length > 0) {
+      body.innerHTML = `
+        <div class="modal-images">
+          ${imgData.results.map(img => `<img src="${img.image}" alt="${nom}" loading="lazy"/>`).join('')}
+        </div>
+        <p class="modal-source">Source : wger.de</p>`;
+      return;
     }
   } catch { /* silencieux — fallback YouTube */ }
 
