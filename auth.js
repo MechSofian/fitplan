@@ -6,11 +6,22 @@ const SUPABASE_URL  = 'https://gllhxhcxvrfxnomsylve.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsbGh4aGN4dnJmeG5vbXN5bHZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2OTUyNjcsImV4cCI6MjA5NDI3MTI2N30.YcF4TvYU3SI-MStMvpwSvy-I1Nhi3TIKz_yQ60i7ECw';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-let currentUser   = null;
-let activeSession = null;
+let currentUser      = null;
+let activeSession    = null;
+let _expectSignedOut = false; // flag pour le SIGNED_OUT non-bloquant
 
 // ── Auth state ────────────────────────────────────
 sb.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_OUT') {
+    // Ignorer si c'est un SIGNED_OUT résiduel d'une déco précédente
+    // pendant que l'utilisateur s'est déjà reconnecté
+    if (!_expectSignedOut) return;
+    _expectSignedOut = false;
+    currentUser = null;
+    renderAuthHeader();
+    return;
+  }
+
   currentUser = session?.user ?? null;
   renderAuthHeader();
 
@@ -140,6 +151,7 @@ async function signUp() {
 
 function signOut() {
   // Reset UI immédiatement — ne jamais bloquer sur Supabase
+  _expectSignedOut = true;
   currentUser = null;
   renderAuthHeader();
   resetState();
@@ -149,20 +161,34 @@ function signOut() {
   showToast('À bientôt !');
 
   // Signout Supabase en arrière-plan (non-bloquant)
-  sb.auth.signOut().catch(e => console.error('[FitPlan] signOut:', e));
+  sb.auth.signOut().catch(e => {
+    console.error('[FitPlan] signOut:', e);
+    _expectSignedOut = false;
+  });
 }
 
 // ── Profile persistence ───────────────────────────
 async function loadProfile() {
   if (!currentUser) return;
 
+  showView('loading');
+
   try {
     const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
 
-    if (error && error.code !== 'PGRST116') {
-      // PGRST116 = no rows found (premier passage)
+    // PGRST116 = aucune ligne (premier passage) → onboarding normal
+    if (error && error.code === 'PGRST116') {
+      goToOnboardingStep(1);
+      showView('onboarding');
+      return;
+    }
+
+    if (error) {
       console.error('[FitPlan] loadProfile error:', error);
       showToast('⚠️ Erreur chargement profil — ' + error.message);
+      goToOnboardingStep(1);
+      showView('onboarding');
+      return;
     }
 
     if (!data?.objectif) {
@@ -171,11 +197,19 @@ async function loadProfile() {
       return;
     }
 
-    if (data.genre)    { state.genre = data.genre; document.querySelectorAll('.genre-btn').forEach(b => b.classList.toggle('active', b.dataset.value === data.genre)); }
-    if (data.age)      { state.age = data.age;         document.getElementById('age').value = data.age; }
-    if (data.taille)   { state.taille = data.taille;   document.getElementById('taille').value = data.taille; }
-    if (data.poids)    { state.poids = data.poids;     document.getElementById('poids').value = data.poids; }
-    if (data.activite) { state.activite = data.activite; document.getElementById('activite').value = data.activite; }
+    // Restaurer l'état depuis la base
+    if (data.genre)  {
+      state.genre = data.genre;
+      document.querySelectorAll('.genre-btn').forEach(b => b.classList.toggle('active', b.dataset.value === data.genre));
+    }
+    if (data.age)    { state.age    = data.age;    document.getElementById('age').value    = data.age; }
+    if (data.taille) { state.taille = data.taille; document.getElementById('taille').value = data.taille; }
+    if (data.poids)  { state.poids  = data.poids;  document.getElementById('poids').value  = data.poids; }
+    if (data.activite) {
+      const act = parseFloat(data.activite);
+      state.activite = act;
+      document.getElementById('activite').value = act;
+    }
     if (data.objectif) {
       state.objectif = data.objectif;
       const card = document.querySelector(`.objectif-card[data-value="${data.objectif}"]`);
@@ -191,6 +225,7 @@ async function loadProfile() {
   } catch (e) {
     console.error('[FitPlan] loadProfile exception:', e);
     showToast('⚠️ Impossible de charger le profil. Vérifie ta connexion.');
+    goToOnboardingStep(1);
     showView('onboarding');
   }
 }
