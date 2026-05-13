@@ -1,0 +1,391 @@
+/* ===== Base ===== */
+* { box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* ===== Steps indicator ===== */
+.step-dot {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px;
+  background: #1f2937;
+  border: 2px solid #374151;
+  color: #6b7280;
+  transition: all 0.3s ease;
+}
+.step-dot.active {
+  background: #f97316;
+  border-color: #f97316;
+  color: white;
+  box-shadow: 0 0 16px rgba(249,115,22,0.4);
+}
+.step-dot.done {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: white;
+}
+.step-line {
+  flex: 1; max-width: 80px; height: 2px;
+  background: #374151;
+  transition: background 0.3s ease;
+}
+.step-line.done { background: #16a34a; }
+
+/* ===== Card ===== */
+.card {
+  background: #111827;
+  border: 1px solid #1f2937;
+  border-radius: 16px;
+  padding: 32px;
+}
+
+/* ===== Fields ===== */
+.field-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #9ca3af;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.input-with-unit {
+  display: flex;
+  align-items: center;
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.input-with-unit:focus-within {
+  border-color: #f97316;
+}
+.input-with-unit input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 12px 16px;
+  color: white;
+  font-size: 16px;
+}
+.input-with-unit span {
+  padding: 0 14px;
+  color: #6b7280;
+  font-size: 13px;
+  border-left: 1px solid #374151;
+  font-weight: 500;
+}
+
+select {
+  width: 100%;
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 10px;
+  padding: 12px 16px;
+  color: white;
+  font-size: 15px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+select:focus { border-color: #f97316; }
+select option { background: #1f2937; }
+
+/* ===== Genre buttons ===== */
+.genre-btn {
+  flex: 1;
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: 2px solid #374151;
+  background: #1f2937;
+  color: #9ca3af;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.genre-btn.active {
+  border-color: #f97316;
+  background: rgba(249,115,22,0.15);
+  color: #f97316;
+}
+.genre-btn:hover:not(.active) {
+  border-color: #6b7280;
+  color: #d1d5db;
+}
+
+/* ===== Objectif cards ===== */
+.objectif-card {
+  background: #1f2937;
+  border: 2px solid #374151;
+  border-radius: 14px;
+  padding: 24px 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+.objectif-card:hover {
+  border-color: #6b7280;
+  transform: translateY(-2px);
+}
+.objectif-card.selected {
+  border-color: #f97316;
+  background: rgba(249,115,22,0.1);
+  box-shadow: 0 0 20px rgba(249,115,22,0.2);
+}
+.objectif-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+}
+.objectif-card h3 {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 8px;
+  color: white;
+}
+.objectif-card p {
+  font-size: 13px;
+  color: #9ca3af;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.objectif-badge {
+  display: inline-block;
+  background: #374151;
+  color: #d1d5db;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.03em;
+}
+.objectif-card.selected .objectif-badge {
+  background: rgba(249,115,22,0.3);
+  color: #fb923c;
+}
+
+/* ===== Buttons ===== */
+.btn-primary {
+  background: #f97316;
+  color: white;
+  font-weight: 700;
+  padding: 12px 28px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-size: 15px;
+  transition: all 0.2s;
+}
+.btn-primary:hover {
+  background: #ea580c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(249,115,22,0.3);
+}
+.btn-secondary {
+  background: transparent;
+  color: #9ca3af;
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 10px;
+  border: 1px solid #374151;
+  cursor: pointer;
+  font-size: 15px;
+  transition: all 0.2s;
+}
+.btn-secondary:hover {
+  border-color: #6b7280;
+  color: #d1d5db;
+}
+
+/* ===== Calories section ===== */
+.calories-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+@media (min-width: 640px) {
+  .calories-grid { grid-template-columns: repeat(4, 1fr); }
+}
+.calorie-stat {
+  background: #1f2937;
+  border-radius: 12px;
+  padding: 18px 16px;
+  text-align: center;
+}
+.calorie-stat .value {
+  font-size: 28px;
+  font-weight: 800;
+  color: #f97316;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.calorie-stat .unit {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+.calorie-stat .label {
+  font-size: 13px;
+  color: #9ca3af;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.macro-bars { margin-top: 8px; }
+.macro-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.macro-label {
+  width: 90px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #9ca3af;
+}
+.macro-bar-bg {
+  flex: 1;
+  height: 8px;
+  background: #1f2937;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.macro-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 1s ease;
+}
+.macro-value {
+  width: 80px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 700;
+  color: #d1d5db;
+}
+
+/* ===== Programme ===== */
+.week-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@media (min-width: 640px) {
+  .week-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 900px) {
+  .week-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.day-card {
+  background: #1f2937;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.day-card.rest-day {
+  opacity: 0.6;
+}
+.day-header {
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.day-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: white;
+}
+.day-type {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.day-type.training { background: rgba(249,115,22,0.2); color: #fb923c; }
+.day-type.rest { background: rgba(99,102,241,0.2); color: #818cf8; }
+.day-type.cardio { background: rgba(20,184,166,0.2); color: #2dd4bf; }
+
+.exercise-list {
+  padding: 0 16px 16px;
+}
+.exercise-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #374151;
+  font-size: 13px;
+}
+.exercise-item:last-child { border-bottom: none; }
+.exercise-name { color: #d1d5db; font-weight: 500; }
+.exercise-sets {
+  color: #f97316;
+  font-weight: 700;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* ===== Conseils ===== */
+.conseil-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #1f2937;
+  font-size: 14px;
+  color: #d1d5db;
+  line-height: 1.6;
+}
+.conseil-item:last-child { border-bottom: none; }
+.conseil-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+
+/* ===== Recap bar ===== */
+.recap-bar {
+  background: #1f2937;
+  border-radius: 12px;
+  padding: 14px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+.recap-item {
+  font-size: 13px;
+  color: #9ca3af;
+}
+.recap-item strong { color: #f97316; }
+
+/* ===== Toast ===== */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #16a34a;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 30px;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  z-index: 100;
+  transition: opacity 0.3s;
+}
+.toast.hidden { opacity: 0; pointer-events: none; }
+
+/* ===== Print ===== */
+@media print {
+  header, footer, #steps-indicator, .btn-primary, .btn-secondary { display: none !important; }
+  body { background: white; color: black; }
+  .card { border: 1px solid #ddd; break-inside: avoid; background: white; }
+  .day-card { background: #f5f5f5; }
+  .calorie-stat { background: #f5f5f5; }
+}

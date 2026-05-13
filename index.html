@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FitPlan — Programme Personnalisé</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="style.css" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 500: '#f97316', 600: '#ea580c', 700: '#c2410c' },
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen font-sans">
+
+  <!-- Header -->
+  <header class="border-b border-gray-800 bg-gray-900/80 backdrop-blur sticky top-0 z-10">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
+      <span class="text-2xl">🏋️</span>
+      <span class="font-bold text-xl tracking-tight text-white">FitPlan</span>
+      <span class="text-gray-500 text-sm ml-auto">Programme personnalisé</span>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="max-w-4xl mx-auto px-4 py-10">
+
+    <!-- Steps indicator -->
+    <div id="steps-indicator" class="flex items-center justify-center gap-2 mb-10">
+      <div class="step-dot active" id="dot-1">1</div>
+      <div class="step-line" id="line-1"></div>
+      <div class="step-dot" id="dot-2">2</div>
+      <div class="step-line" id="line-2"></div>
+      <div class="step-dot" id="dot-3">3</div>
+    </div>
+
+    <!-- STEP 1: Profil -->
+    <section id="step-1" class="step-section">
+      <div class="card">
+        <h2 class="text-2xl font-bold mb-1">Votre profil</h2>
+        <p class="text-gray-400 mb-8">Ces informations permettent de calculer votre métabolisme de base.</p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+
+          <div class="field-group">
+            <label>Genre</label>
+            <div class="flex gap-3 mt-2">
+              <button class="genre-btn active" data-value="male">Homme</button>
+              <button class="genre-btn" data-value="female">Femme</button>
+            </div>
+            <input type="hidden" id="genre" value="male" />
+          </div>
+
+          <div class="field-group">
+            <label for="age">Âge</label>
+            <div class="input-with-unit">
+              <input type="number" id="age" min="15" max="80" placeholder="25" />
+              <span>ans</span>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label for="taille">Taille</label>
+            <div class="input-with-unit">
+              <input type="number" id="taille" min="140" max="220" placeholder="175" />
+              <span>cm</span>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label for="poids">Poids actuel</label>
+            <div class="input-with-unit">
+              <input type="number" id="poids" min="40" max="200" placeholder="75" />
+              <span>kg</span>
+            </div>
+          </div>
+
+          <div class="field-group sm:col-span-2">
+            <label for="activite">Niveau d'activité quotidien</label>
+            <select id="activite" class="mt-2">
+              <option value="1.2">Sédentaire — bureau, peu ou pas de sport</option>
+              <option value="1.375">Légèrement actif — sport 1-3×/semaine</option>
+              <option value="1.55" selected>Modérément actif — sport 3-5×/semaine</option>
+              <option value="1.725">Très actif — sport intense 6-7×/semaine</option>
+              <option value="1.9">Extrêmement actif — travail physique + sport quotidien</option>
+            </select>
+          </div>
+
+        </div>
+
+        <div id="step1-error" class="hidden mt-4 text-red-400 text-sm bg-red-900/30 px-4 py-2 rounded-lg"></div>
+
+        <div class="mt-8 flex justify-end">
+          <button class="btn-primary" onclick="goToStep2()">Continuer →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 2: Objectif -->
+    <section id="step-2" class="step-section hidden">
+      <div class="card">
+        <h2 class="text-2xl font-bold mb-1">Votre objectif</h2>
+        <p class="text-gray-400 mb-8">Choisissez ce que vous souhaitez accomplir.</p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4" id="objectif-cards">
+
+          <div class="objectif-card" data-value="perte" onclick="selectObjectif(this)">
+            <div class="objectif-icon">🔥</div>
+            <h3>Perte de poids</h3>
+            <p>Déficit calorique + cardio pour brûler les graisses tout en préservant le muscle.</p>
+            <div class="objectif-badge">− 500 kcal/j</div>
+          </div>
+
+          <div class="objectif-card" data-value="maintien" onclick="selectObjectif(this)">
+            <div class="objectif-icon">⚖️</div>
+            <h3>Maintien / Recomposition</h3>
+            <p>Calories d'entretien pour maintenir le poids et améliorer la composition corporelle.</p>
+            <div class="objectif-badge">= TDEE</div>
+          </div>
+
+          <div class="objectif-card" data-value="masse" onclick="selectObjectif(this)">
+            <div class="objectif-icon">💪</div>
+            <h3>Prise de masse</h3>
+            <p>Surplus calorique contrôlé pour maximiser la croissance musculaire (lean bulk).</p>
+            <div class="objectif-badge">+ 300 kcal/j</div>
+          </div>
+
+        </div>
+
+        <div id="step2-error" class="hidden mt-4 text-red-400 text-sm bg-red-900/30 px-4 py-2 rounded-lg"></div>
+
+        <div class="mt-8 flex justify-between">
+          <button class="btn-secondary" onclick="goToStep(1)">← Retour</button>
+          <button class="btn-primary" onclick="goToResults()">Générer mon programme →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 3: Résultats -->
+    <section id="step-3" class="step-section hidden">
+
+      <!-- Recap profil -->
+      <div id="profile-recap" class="recap-bar mb-6"></div>
+
+      <!-- Calories -->
+      <div class="card mb-6">
+        <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+          <span>🍽️</span> Plan nutritionnel
+        </h2>
+        <div id="calories-section"></div>
+      </div>
+
+      <!-- Programme -->
+      <div class="card mb-6">
+        <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+          <span>📋</span> Programme d'entraînement
+        </h2>
+        <div id="programme-section"></div>
+      </div>
+
+      <!-- Conseils -->
+      <div class="card mb-8">
+        <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+          <span>💡</span> Conseils personnalisés
+        </h2>
+        <div id="conseils-section"></div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex flex-wrap gap-3 justify-end">
+        <button class="btn-secondary" onclick="goToStep(1)">← Modifier le profil</button>
+        <button class="btn-secondary" onclick="printPage()">🖨️ Imprimer / PDF</button>
+        <button class="btn-primary" onclick="copyToClipboard()">📋 Copier le résumé</button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <footer class="text-center text-gray-600 text-sm py-8">
+    FitPlan — Calculs basés sur la formule Mifflin-St Jeor &middot; Consulte un professionnel de santé avant de débuter.
+  </footer>
+
+  <div id="toast" class="toast hidden">✓ Copié dans le presse-papiers !</div>
+
+  <script src="app.js"></script>
+</body>
+</html>
