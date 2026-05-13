@@ -134,6 +134,22 @@
 
         </div>
 
+        <!-- Sélecteur de jours -->
+        <div id="days-section" class="days-section hidden">
+          <div class="days-separator"></div>
+          <div class="days-header">
+            <span class="days-title">Jours d'entraînement par semaine</span>
+          </div>
+          <div class="days-btns" id="days-btns">
+            <button class="days-btn" data-days="2">2j</button>
+            <button class="days-btn" data-days="3">3j</button>
+            <button class="days-btn" data-days="4">4j</button>
+            <button class="days-btn" data-days="5">5j</button>
+            <button class="days-btn" data-days="6">6j</button>
+          </div>
+          <p id="days-desc" class="days-desc"></p>
+        </div>
+
         <div id="step2-error" class="hidden mt-4 text-red-400 text-sm bg-red-900/30 px-4 py-2 rounded-lg"></div>
 
         <div class="mt-8 flex justify-between">
@@ -189,6 +205,19 @@
   </footer>
 
   <div id="toast" class="toast hidden">✓ Copié dans le presse-papiers !</div>
+
+  <!-- Modal démonstration exercice -->
+  <div id="demo-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeModal()"></div>
+    <div class="modal-card">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <h3 id="modal-title" class="modal-title"></h3>
+      <div id="modal-body" class="modal-body"></div>
+      <a id="modal-yt-link" class="modal-yt-btn" target="_blank" rel="noopener">
+        ▶ Voir le tutoriel sur YouTube
+      </a>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>
