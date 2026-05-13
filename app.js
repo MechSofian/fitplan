@@ -129,7 +129,7 @@ function generateAndGo() {
   renderProfile();
   showView('dashboard');
   document.getElementById('main-nav')?.classList.remove('hidden');
-  if (typeof saveProfile === 'function') saveProfile();
+  // saveProfile() est appelé par l'intercepteur dans auth.js
 }
 
 // ── Calculations ──────────────────────────────────
@@ -346,9 +346,9 @@ function renderProfile() {
     row('Objectif',  objLabel) +
     row('Jours/sem', `${jours} jours`) +
     row('Split',     splitNames[objectif]?.[jours] ?? '') +
-    row('BMR',       `${Math.round(bmr)} kcal/j`) +
-    row('TDEE',      `${tdee} kcal/j`) +
-    row('Objectif',  `${cibles} kcal/j`);
+    row('BMR',        `${Math.round(bmr)} kcal/j`) +
+    row('TDEE',       `${tdee} kcal/j`) +
+    row('Cible cal.', `${cibles} kcal/j`);
 
   document.getElementById('profile-nutrition').innerHTML =
     row('Calories',  `${cibles} kcal/j`) +
@@ -387,6 +387,7 @@ async function openDemo(nom) {
 
   title.textContent = nom;
   ytLink.href = `https://www.youtube.com/results?search_query=${encodeURIComponent(`comment faire ${nom} musculation tutoriel`)}`;
+  body.innerHTML = '<div class="modal-loading"><div class="spinner"></div><span>Chargement…</span></div>';
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
 

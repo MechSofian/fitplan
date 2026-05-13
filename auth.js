@@ -138,14 +138,8 @@ async function signUp() {
   }
 }
 
-async function signOut() {
-  try {
-    const { error } = await sb.auth.signOut();
-    if (error) console.error('[FitPlan] signOut error:', error);
-  } catch (e) {
-    console.error('[FitPlan] signOut exception:', e);
-  }
-  // Reset UI quoi qu'il arrive
+function signOut() {
+  // Reset UI immédiatement — ne jamais bloquer sur Supabase
   currentUser = null;
   renderAuthHeader();
   resetState();
@@ -153,6 +147,9 @@ async function signOut() {
   goToOnboardingStep(1);
   showView('onboarding');
   showToast('À bientôt !');
+
+  // Signout Supabase en arrière-plan (non-bloquant)
+  sb.auth.signOut().catch(e => console.error('[FitPlan] signOut:', e));
 }
 
 // ── Profile persistence ───────────────────────────
@@ -386,7 +383,7 @@ async function loadHistory() {
       return;
     }
 
-    const html = sessions.map(s => {
+    const makeHtml = (list) => list.map(s => {
       const date    = new Date(s.created_at).toLocaleDateString('fr-FR', { weekday:'short', day:'numeric', month:'short' });
       const exCount = s.exercise_logs?.length ?? 0;
       return `
@@ -398,12 +395,10 @@ async function loadHistory() {
     }).join('');
 
     const dashHistory = document.getElementById('dash-history');
-    if (dashHistory) dashHistory.innerHTML = sessions.length
-      ? html.split('</div>').slice(0, 5).join('</div>') + '</div>'
-      : '<p style="color:#6b7280;font-size:13px">Aucune séance.</p>';
+    if (dashHistory) dashHistory.innerHTML = makeHtml(sessions.slice(0, 3));
 
     const profileHistory = document.getElementById('profile-history');
-    if (profileHistory) profileHistory.innerHTML = html;
+    if (profileHistory) profileHistory.innerHTML = makeHtml(sessions);
   } catch (e) {
     console.error('[FitPlan] loadHistory error:', e);
   }
