@@ -36,8 +36,14 @@
   <!-- ═══ VIEWS ════════════════════════════════════════════ -->
   <main class="app-container py-10">
 
+    <!-- ── LOADING ─────────────────────────────────────── -->
+    <div id="view-loading" class="loading-screen">
+      <div class="spinner" style="width:44px;height:44px;border-width:4px"></div>
+      <p style="color:#6b7280;font-size:14px;margin-top:16px">Chargement…</p>
+    </div>
+
     <!-- ── ONBOARDING ──────────────────────────────────── -->
-    <div id="view-onboarding">
+    <div id="view-onboarding" class="hidden">
 
       <div class="flex items-center justify-center gap-2 mb-10">
         <div class="step-dot active" id="dot-1">1</div>

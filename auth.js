@@ -8,15 +8,50 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 let currentUser   = null;
 let activeSession = null;
+let authInitialized = false;
 
 // ── Auth state ────────────────────────────────────
 sb.auth.onAuthStateChange(async (_event, session) => {
   currentUser = session?.user ?? null;
   renderAuthHeader();
+
   if (currentUser) {
     await loadProfile();
+  } else {
+    // Pas connecté (ou déconnexion) → reset propre
+    resetState();
+    document.getElementById('main-nav').classList.add('hidden');
+    goToOnboardingStep(1);
+    showView('onboarding');
   }
+
+  authInitialized = true;
 });
+
+// ── Reset UI state ────────────────────────────────
+function resetState() {
+  state.genre    = 'male';
+  state.age      = null;
+  state.taille   = null;
+  state.poids    = null;
+  state.activite = 1.55;
+  state.objectif = null;
+  state.jours    = 4;
+
+  // Remettre les inputs à zéro
+  const ageEl = document.getElementById('age');
+  const tailleEl = document.getElementById('taille');
+  const poidsEl = document.getElementById('poids');
+  if (ageEl)    ageEl.value = '';
+  if (tailleEl) tailleEl.value = '';
+  if (poidsEl)  poidsEl.value = '';
+
+  document.querySelectorAll('.genre-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.value === 'male')
+  );
+  document.querySelectorAll('.objectif-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('days-section')?.classList.add('hidden');
+}
 
 // ── Header ────────────────────────────────────────
 function renderAuthHeader() {
@@ -87,13 +122,8 @@ async function signUp() {
 
 async function signOut() {
   await sb.auth.signOut();
-  currentUser = null;
-  state.objectif = null;
-  renderAuthHeader();
-  document.getElementById('main-nav').classList.add('hidden');
-  goToOnboardingStep(1);
-  showView('onboarding');
   showToast('À bientôt !');
+  // onAuthStateChange prend le relais pour reset l'UI
 }
 
 // ── Profile persistence ───────────────────────────

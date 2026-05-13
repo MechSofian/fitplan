@@ -13,11 +13,10 @@ const state = {
 
 // ── View management ───────────────────────────────
 function showView(name) {
-  ['onboarding', 'dashboard', 'profile'].forEach(v => {
-    document.getElementById(`view-${v}`).classList.toggle('hidden', v !== name);
+  ['loading', 'onboarding', 'dashboard', 'profile'].forEach(v => {
+    document.getElementById(`view-${v}`)?.classList.toggle('hidden', v !== name);
   });
 
-  // Nav highlight
   const navProg = document.getElementById('nav-programme');
   const navProf = document.getElementById('nav-profil');
   if (navProg && navProf) {
