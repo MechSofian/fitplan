@@ -385,25 +385,41 @@ async function openDemo(nom) {
   const title  = document.getElementById('modal-title');
   const body   = document.getElementById('modal-body');
   const ytLink = document.getElementById('modal-yt-link');
+
   title.textContent = nom;
-  body.innerHTML = `<div class="modal-loading"><div class="spinner"></div><p>Recherche…</p></div>`;
   ytLink.href = `https://www.youtube.com/results?search_query=${encodeURIComponent(`comment faire ${nom} musculation tutoriel`)}`;
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
+
+  // Tentative wger.de (images libres)
+  const term = encodeURIComponent(EXERCISE_EN[nom] ?? nom);
   try {
-    const res  = await fetch(`https://wger.de/api/v2/exercise/search/?term=${encodeURIComponent(EXERCISE_EN[nom] ?? nom)}&language=english&format=json`);
-    const data = await res.json();
-    if (data.suggestions?.length > 0) {
-      const baseId = data.suggestions[0].data.base_id;
-      const imgRes = await fetch(`https://wger.de/api/v2/exerciseimage/?exercise_base_id=${baseId}&format=json`);
+    const res = await fetch(`https://wger.de/api/v2/exerciseimage/?format=json&limit=3`, { signal: AbortSignal.timeout(4000) });
+    if (!res.ok) throw new Error('wger unavailable');
+    // wger search via exerciseinfo endpoint
+    const searchRes = await fetch(`https://wger.de/api/v2/exercise/?format=json&language=2&name=${term}`, { signal: AbortSignal.timeout(4000) });
+    const searchData = await searchRes.json();
+    const exId = searchData.results?.[0]?.id;
+    if (exId) {
+      const imgRes  = await fetch(`https://wger.de/api/v2/exerciseimage/?exercise_base=${exId}&format=json`, { signal: AbortSignal.timeout(4000) });
       const imgData = await imgRes.json();
       if (imgData.results?.length > 0) {
-        body.innerHTML = `<div class="modal-images">${imgData.results.map(img => `<img src="${img.image}" alt="${nom}" loading="lazy"/>`).join('')}</div><p class="modal-source">Source : wger.de</p>`;
+        body.innerHTML = `
+          <div class="modal-images">
+            ${imgData.results.map(img => `<img src="${img.image}" alt="${nom}" loading="lazy"/>`).join('')}
+          </div>
+          <p class="modal-source">Source : wger.de</p>`;
         return;
       }
     }
-    body.innerHTML = `<div class="modal-fallback"><div style="font-size:48px">🏋️</div><p>Aucune image disponible.</p><p style="color:#6b7280;font-size:13px;margin-top:6px">Utilise le bouton YouTube ci-dessous.</p></div>`;
-  } catch { body.innerHTML = `<div class="modal-fallback"><div style="font-size:48px">🏋️</div><p>Erreur de chargement.</p></div>`; }
+  } catch { /* silencieux — fallback YouTube */ }
+
+  body.innerHTML = `
+    <div class="modal-fallback">
+      <div style="font-size:52px;margin-bottom:12px">🏋️</div>
+      <p style="font-weight:600;margin-bottom:6px">${nom}</p>
+      <p style="color:#6b7280;font-size:13px">Clique sur YouTube ci-dessous pour voir le tutoriel vidéo.</p>
+    </div>`;
 }
 
 function closeModal() {

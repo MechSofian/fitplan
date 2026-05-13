@@ -1,9 +1,16 @@
 -- ================================================
--- FitPlan — Schéma Supabase
+-- FitPlan — Schéma Supabase (v2)
 -- Coller dans SQL Editor > New query > Run
+-- Si les tables existent déjà, lancer d'abord le bloc DROP ci-dessous
 -- ================================================
 
--- Profils utilisateurs (étend auth.users)
+-- (Optionnel) Supprimer les anciennes policies si déjà créées
+drop policy if exists "profiles_self"      on profiles;
+drop policy if exists "sessions_self"      on sessions;
+drop policy if exists "exercise_logs_self" on exercise_logs;
+
+-- ── Tables ──────────────────────────────────────
+
 create table if not exists profiles (
   id          uuid primary key references auth.users on delete cascade,
   genre       text,
@@ -16,7 +23,6 @@ create table if not exists profiles (
   updated_at  timestamptz default now()
 );
 
--- Séances d'entraînement
 create table if not exists sessions (
   id          uuid primary key default gen_random_uuid(),
   user_id     uuid references auth.users on delete cascade not null,
@@ -27,34 +33,38 @@ create table if not exists sessions (
   created_at  timestamptz default now()
 );
 
--- Exercices loggés dans chaque séance
 create table if not exists exercise_logs (
   id            uuid primary key default gen_random_uuid(),
   session_id    uuid references sessions on delete cascade not null,
   user_id       uuid references auth.users on delete cascade not null,
   exercise_name text not null,
-  sets          jsonb default '[]',  -- [{reps: 10, weight: 80}, ...]
+  sets          jsonb default '[]',
   created_at    timestamptz default now()
 );
 
--- ── Row Level Security ──────────────────────────────
+-- ── Row Level Security ───────────────────────────
+
 alter table profiles      enable row level security;
 alter table sessions      enable row level security;
 alter table exercise_logs enable row level security;
 
--- Profiles : chaque user accède uniquement à son profil
-create policy "profiles_self" on profiles
-  for all using (auth.uid() = id);
+-- profiles
+create policy "profiles_select" on profiles for select using      (auth.uid() = id);
+create policy "profiles_insert" on profiles for insert with check (auth.uid() = id);
+create policy "profiles_update" on profiles for update using      (auth.uid() = id) with check (auth.uid() = id);
 
--- Sessions : chaque user accède uniquement à ses sessions
-create policy "sessions_self" on sessions
-  for all using (auth.uid() = user_id);
+-- sessions
+create policy "sessions_select" on sessions for select using      (auth.uid() = user_id);
+create policy "sessions_insert" on sessions for insert with check (auth.uid() = user_id);
+create policy "sessions_delete" on sessions for delete using      (auth.uid() = user_id);
 
--- Exercise logs : idem
-create policy "exercise_logs_self" on exercise_logs
-  for all using (auth.uid() = user_id);
+-- exercise_logs
+create policy "logs_select" on exercise_logs for select using      (auth.uid() = user_id);
+create policy "logs_insert" on exercise_logs for insert with check (auth.uid() = user_id);
+create policy "logs_delete" on exercise_logs for delete using      (auth.uid() = user_id);
 
--- ── Auto-créer le profil à l'inscription ───────────
+-- ── Auto-créer le profil à l'inscription ────────
+
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer as $$
 begin
@@ -63,6 +73,7 @@ begin
 end;
 $$;
 
-create or replace trigger on_auth_user_created
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();

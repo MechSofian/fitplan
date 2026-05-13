@@ -224,19 +224,36 @@ function cancelSession() {
 }
 
 async function saveSession() {
-  if (!currentUser || !activeSession) return;
+  if (!currentUser) { showToast('⚠️ Connecte-toi pour enregistrer'); return; }
+  if (!activeSession) { showToast('⚠️ Aucune séance active'); return; }
+
   const { data: session, error } = await sb.from('sessions').insert({
-    user_id: currentUser.id, objectif: state.objectif,
-    jours: state.jours, label: activeSession.label,
+    user_id: currentUser.id,
+    objectif: state.objectif,
+    jours: state.jours,
+    label: activeSession.label,
   }).select().single();
-  if (error) { showToast('❌ Erreur lors de la sauvegarde'); return; }
 
-  const logs = activeSession.exercices.map((ex, i) => {
-    const sets = Object.values(activeSession.logs[i] ?? {});
-    return { session_id: session.id, user_id: currentUser.id, exercise_name: ex.nom, sets };
-  }).filter(l => l.sets.length > 0);
+  if (error) {
+    console.error('[FitPlan] saveSession error:', error);
+    showToast('❌ ' + (error.message ?? 'Erreur sauvegarde — vérifie la console'));
+    return;
+  }
 
-  if (logs.length > 0) await sb.from('exercise_logs').insert(logs);
+  // Log les exercices où au moins une série a été renseignée
+  const logs = activeSession.exercices
+    .map((ex, i) => ({
+      session_id:    session.id,
+      user_id:       currentUser.id,
+      exercise_name: ex.nom,
+      sets:          Object.values(activeSession.logs[i] ?? {}),
+    }))
+    .filter(l => l.sets.length > 0);
+
+  if (logs.length > 0) {
+    const { error: logErr } = await sb.from('exercise_logs').insert(logs);
+    if (logErr) console.error('[FitPlan] exercise_logs error:', logErr);
+  }
 
   cancelSession();
   showToast('✓ Séance enregistrée !');
