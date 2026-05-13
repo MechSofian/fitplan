@@ -8,7 +8,17 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 let currentUser      = null;
 let activeSession    = null;
-let _expectSignedOut = false; // flag pour le SIGNED_OUT non-bloquant
+let _expectSignedOut = false;
+
+// Afficher onboarding immédiatement si aucune session en localStorage
+// (évite le spinner inutile quand l'utilisateur n'est pas connecté)
+;(function() {
+  const hasSession = Object.keys(localStorage).some(k => k.startsWith('sb-'));
+  if (!hasSession) {
+    document.getElementById('view-loading')?.classList.add('hidden');
+    document.getElementById('view-onboarding')?.classList.remove('hidden');
+  }
+})();
 
 // ── Auth state ────────────────────────────────────
 sb.auth.onAuthStateChange(async (event, session) => {

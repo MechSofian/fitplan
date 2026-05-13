@@ -374,12 +374,38 @@ function getConseils(objectif, poids, proteines, jours) {
   return [...base, ...(extra[objectif] ?? [])];
 }
 
-// ── Demo modal (wger.de) ──────────────────────────
-const EXERCISE_EN = {
-  'Développé couché barre':'bench press','Développé incliné haltères':'incline dumbbell press','Écarté poulie basse':'cable fly','Pompes lestées':'push up','Tractions / Lat pulldown':'lat pulldown','Rowing barre':'barbell row','Rowing haltère 1 bras':'dumbbell row','Face pull poulie':'face pull','Développé militaire barre':'overhead press','Élévations latérales':'lateral raise','Élévations frontales':'front raise','Oiseau poulie':'rear delt fly','Curl barre EZ':'barbell curl','Curl haltères marteau':'hammer curl','Dips lestés / Barre au front':'triceps dip','Pushdown poulie':'triceps pushdown','Squat barre':'barbell squat','Presse à cuisses':'leg press','Soulevé de terre roumain':'romanian deadlift','Fentes marchées':'walking lunge','Leg curl couché':'leg curl','Mollets debout':'standing calf raise','Hip thrust barre':'hip thrust','Mollets assis':'seated calf raise',
+// ── Demo modal — images statiques wger.de ─────────
+// L'API wger.de a changé (exercise_base supprimé, filtres cassés).
+// On utilise un mapping direct nom → URLs d'images stables depuis leur CDN.
+const W = 'https://wger.de/media/exercise-images/';
+const EXERCISE_IMAGES = {
+  'Développé couché barre':         [W+'192/Bench-press-1.png'],
+  'Développé incliné haltères':     [W+'41/Incline-bench-press-1.png', W+'16/Incline-press-1.png'],
+  'Écarté poulie basse':           [W+'71/Cable-crossover-2.png', W+'122/Incline-cable-flyes-1.png'],
+  'Pompes lestées':                [W+'31/92f6451b-f89d-49d6-9531-8970ea420d97.png'],
+  'Tractions / Lat pulldown':      [W+'181/Chin-ups-2.png'],
+  'Rowing barre':                  [W+'110/Reverse-grip-bent-over-rows-1.png', W+'106/T-bar-row-1.png'],
+  'Rowing haltère 1 bras':         [W+'143/Cable-seated-rows-2.png'],
+  'Face pull poulie':              [W+'109/Barbell-rear-delt-row-1.png'],
+  'Développé militaire barre':     [W+'119/seated-barbell-shoulder-press-large-1.png'],
+  'Élévations latérales':         [W+'148/lateral-dumbbell-raises-large-2.png'],
+  'Élévations frontales':         [W+'123/dumbbell-shoulder-press-large-1.png'],
+  'Oiseau poulie':                 [W+'109/Barbell-rear-delt-row-1.png'],
+  'Curl barre EZ':                 [W+'81/Biceps-curl-1.png', W+'129/Standing-biceps-curl-1.png'],
+  'Curl haltères marteau':         [W+'86/Bicep-hammer-curl-1.png', W+'138/Hammer-curls-with-rope-1.png'],
+  'Dips lestés / Barre au front':  [W+'83/Bench-dips-1.png', W+'84/Lying-close-grip-triceps-press-to-chin-1.png'],
+  'Pushdown poulie':               [W+'84/Lying-close-grip-triceps-press-to-chin-1.png'],
+  'Squat barre':                   [W+'191/Front-squat-1-857x1024.png'],
+  'Presse à cuisses':             [W+'130/Narrow-stance-hack-squats-1-1024x721.png'],
+  'Soulevé de terre roumain':     [W+'161/Dead-lifts-2.png'],
+  'Fentes marchées':               [W+'113/Walking-lunges-1.png'],
+  'Leg curl couché':               [W+'154/lying-leg-curl-machine-large-1.png'],
+  'Mollets debout':                [W+'129/Standing-biceps-curl-1.png'],
+  'Hip thrust barre':              [W+'128/Hyperextensions-1.png'],
+  'Mollets assis':                 [W+'117/seated-leg-curl-large-1.png'],
 };
 
-async function openDemo(nom) {
+function openDemo(nom) {
   const modal  = document.getElementById('demo-modal');
   const title  = document.getElementById('modal-title');
   const body   = document.getElementById('modal-body');
@@ -387,48 +413,24 @@ async function openDemo(nom) {
 
   title.textContent = nom;
   ytLink.href = `https://www.youtube.com/results?search_query=${encodeURIComponent(`comment faire ${nom} musculation tutoriel`)}`;
-  body.innerHTML = '<div class="modal-loading"><div class="spinner"></div><span>Chargement…</span></div>';
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
 
-  // Tentative wger.de — recherche par nom partiel puis images filtrées par exercice
-  const term = encodeURIComponent(EXERCISE_EN[nom] ?? nom);
-  try {
-    // 1. Trouver l'exercice par nom (partial match)
-    const searchRes = await fetch(
-      `https://wger.de/api/v2/exercise/?format=json&language=2&name__icontains=${term}&limit=1`,
-      { signal: AbortSignal.timeout(5000) }
-    );
-    if (!searchRes.ok) throw new Error('wger unavailable');
-    const searchData = await searchRes.json();
-
-    // exercise_base = identifiant de la fiche exercice (différent de id qui est la traduction)
-    const baseId = searchData.results?.[0]?.exercise_base;
-    if (!baseId) throw new Error('exercise not found');
-
-    // 2. Récupérer les images associées à cet exercice précis, max 2
-    const imgRes  = await fetch(
-      `https://wger.de/api/v2/exerciseimage/?exercise_base_id=${baseId}&format=json&limit=2`,
-      { signal: AbortSignal.timeout(5000) }
-    );
-    const imgData = await imgRes.json();
-
-    if (imgData.results?.length > 0) {
-      body.innerHTML = `
-        <div class="modal-images">
-          ${imgData.results.map(img => `<img src="${img.image}" alt="${nom}" loading="lazy"/>`).join('')}
-        </div>
-        <p class="modal-source">Source : wger.de</p>`;
-      return;
-    }
-  } catch { /* silencieux — fallback YouTube */ }
-
-  body.innerHTML = `
-    <div class="modal-fallback">
-      <div style="font-size:52px;margin-bottom:12px">🏋️</div>
-      <p style="font-weight:600;margin-bottom:6px">${nom}</p>
-      <p style="color:#6b7280;font-size:13px">Clique sur YouTube ci-dessous pour voir le tutoriel vidéo.</p>
-    </div>`;
+  const imgs = EXERCISE_IMAGES[nom];
+  if (imgs?.length) {
+    body.innerHTML = `
+      <div class="modal-images">
+        ${imgs.map(src => `<img src="${src}" alt="${nom}" loading="lazy" onerror="this.style.display='none'"/>`).join('')}
+      </div>
+      <p class="modal-source">Source : wger.de</p>`;
+  } else {
+    body.innerHTML = `
+      <div class="modal-fallback">
+        <div style="font-size:52px;margin-bottom:12px">🏋️</div>
+        <p style="font-weight:600;margin-bottom:6px">${nom}</p>
+        <p style="color:#6b7280;font-size:13px">Clique sur YouTube ci-dessous pour voir le tutoriel vidéo.</p>
+      </div>`;
+  }
 }
 
 function closeModal() {
