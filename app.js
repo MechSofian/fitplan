@@ -338,11 +338,14 @@ function renderResults() {
                                              'background:rgba(249,115,22,0.08)';
     const exHTML = day.exercices.map(ex => `
       <div class="exercise-item">
-        <div>
+        <div style="flex:1;min-width:0">
           <div class="exercise-name">${ex.nom}</div>
           ${ex.muscle ? `<div style="font-size:11px;color:#6b7280;margin-top:2px">${ex.muscle}</div>` : ''}
         </div>
-        <div class="exercise-sets">${ex.sets}</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+          <span class="exercise-sets">${ex.sets}</span>
+          <button class="demo-btn" onclick="openDemo('${ex.nom.replace(/'/g, "\\'")}')" title="Voir une démonstration">▶</button>
+        </div>
       </div>`).join('');
 
     return `
@@ -380,6 +383,13 @@ function renderResults() {
       requestAnimationFrame(() => { bar.style.width = w; });
     });
   }, 100);
+}
+
+// ── Demo YouTube ─────────────────────────────────
+
+function openDemo(nom) {
+  const query = encodeURIComponent(`comment faire ${nom} musculation tutoriel`);
+  window.open(`https://www.youtube.com/results?search_query=${query}`, '_blank');
 }
 
 // ── Utils ─────────────────────────────────────────
