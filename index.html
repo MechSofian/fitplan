@@ -5,16 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FitPlan — Programme Personnalisé</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="style.css" />
   <script>
     tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: { 500: '#f97316', 600: '#ea580c', 700: '#c2410c' },
-          }
-        }
-      }
+      theme: { extend: { colors: { brand: { 500: '#f97316', 600: '#ea580c', 700: '#c2410c' } } } }
     }
   </script>
 </head>
@@ -25,7 +20,9 @@
     <div class="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
       <span class="text-2xl">🏋️</span>
       <span class="font-bold text-xl tracking-tight text-white">FitPlan</span>
-      <span class="text-gray-500 text-sm ml-auto">Programme personnalisé</span>
+      <div class="ml-auto flex items-center gap-3" id="auth-header">
+        <!-- rempli par JS -->
+      </div>
     </div>
   </header>
 
@@ -48,14 +45,12 @@
         <p class="text-gray-400 mb-8">Ces informations permettent de calculer votre métabolisme de base.</p>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-
           <div class="field-group">
             <label>Genre</label>
             <div class="flex gap-3 mt-2">
               <button class="genre-btn active" data-value="male">Homme</button>
               <button class="genre-btn" data-value="female">Femme</button>
             </div>
-            <input type="hidden" id="genre" value="male" />
           </div>
 
           <div class="field-group">
@@ -92,7 +87,6 @@
               <option value="1.9">Extrêmement actif — travail physique + sport quotidien</option>
             </select>
           </div>
-
         </div>
 
         <div id="step1-error" class="hidden mt-4 text-red-400 text-sm bg-red-900/30 px-4 py-2 rounded-lg"></div>
@@ -110,28 +104,24 @@
         <p class="text-gray-400 mb-8">Choisissez ce que vous souhaitez accomplir.</p>
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4" id="objectif-cards">
-
           <div class="objectif-card" data-value="perte" onclick="selectObjectif(this)">
             <div class="objectif-icon">🔥</div>
             <h3>Perte de poids</h3>
             <p>Déficit calorique + cardio pour brûler les graisses tout en préservant le muscle.</p>
             <div class="objectif-badge">− 500 kcal/j</div>
           </div>
-
           <div class="objectif-card" data-value="maintien" onclick="selectObjectif(this)">
             <div class="objectif-icon">⚖️</div>
             <h3>Maintien / Recomposition</h3>
             <p>Calories d'entretien pour maintenir le poids et améliorer la composition corporelle.</p>
             <div class="objectif-badge">= TDEE</div>
           </div>
-
           <div class="objectif-card" data-value="masse" onclick="selectObjectif(this)">
             <div class="objectif-icon">💪</div>
             <h3>Prise de masse</h3>
             <p>Surplus calorique contrôlé pour maximiser la croissance musculaire (lean bulk).</p>
             <div class="objectif-badge">+ 300 kcal/j</div>
           </div>
-
         </div>
 
         <!-- Sélecteur de jours -->
@@ -162,34 +152,41 @@
     <!-- STEP 3: Résultats -->
     <section id="step-3" class="step-section hidden">
 
-      <!-- Recap profil -->
       <div id="profile-recap" class="recap-bar mb-6"></div>
 
-      <!-- Calories -->
       <div class="card mb-6">
-        <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
-          <span>🍽️</span> Plan nutritionnel
-        </h2>
+        <h2 class="text-xl font-bold mb-6 flex items-center gap-2"><span>🍽️</span> Plan nutritionnel</h2>
         <div id="calories-section"></div>
       </div>
 
-      <!-- Programme -->
       <div class="card mb-6">
-        <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
-          <span>📋</span> Programme d'entraînement
-        </h2>
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-xl font-bold flex items-center gap-2"><span>📋</span> Programme d'entraînement</h2>
+          <button class="btn-log" id="btn-start-session" onclick="startSession()">+ Démarrer la séance</button>
+        </div>
         <div id="programme-section"></div>
       </div>
 
-      <!-- Conseils -->
+      <!-- Journal de séance (caché par défaut) -->
+      <div class="card mb-6 hidden" id="session-card">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold flex items-center gap-2"><span>✅</span> Séance en cours</h2>
+          <button class="btn-primary" onclick="saveSession()">Enregistrer la séance</button>
+        </div>
+        <div id="session-log"></div>
+      </div>
+
+      <!-- Historique -->
+      <div class="card mb-6 hidden" id="history-card">
+        <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><span>📅</span> Historique</h2>
+        <div id="history-section"></div>
+      </div>
+
       <div class="card mb-8">
-        <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
-          <span>💡</span> Conseils personnalisés
-        </h2>
+        <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><span>💡</span> Conseils personnalisés</h2>
         <div id="conseils-section"></div>
       </div>
 
-      <!-- Actions -->
       <div class="flex flex-wrap gap-3 justify-end">
         <button class="btn-secondary" onclick="goToStep(1)">← Modifier le profil</button>
         <button class="btn-secondary" onclick="printPage()">🖨️ Imprimer / PDF</button>
@@ -204,7 +201,7 @@
     FitPlan — Calculs basés sur la formule Mifflin-St Jeor &middot; Consulte un professionnel de santé avant de débuter.
   </footer>
 
-  <div id="toast" class="toast hidden">✓ Copié dans le presse-papiers !</div>
+  <div id="toast" class="toast hidden"></div>
 
   <!-- Modal démonstration exercice -->
   <div id="demo-modal" class="modal hidden">
@@ -213,12 +210,24 @@
       <button class="modal-close" onclick="closeModal()">✕</button>
       <h3 id="modal-title" class="modal-title"></h3>
       <div id="modal-body" class="modal-body"></div>
-      <a id="modal-yt-link" class="modal-yt-btn" target="_blank" rel="noopener">
-        ▶ Voir le tutoriel sur YouTube
-      </a>
+      <a id="modal-yt-link" class="modal-yt-btn" target="_blank" rel="noopener">▶ Voir le tutoriel sur YouTube</a>
+    </div>
+  </div>
+
+  <!-- Modal auth -->
+  <div id="auth-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeAuthModal()"></div>
+    <div class="modal-card" style="max-width:420px">
+      <button class="modal-close" onclick="closeAuthModal()">✕</button>
+      <div id="auth-tabs" class="flex gap-1 mb-6 bg-gray-900 p-1 rounded-xl">
+        <button class="auth-tab active" onclick="switchAuthTab('login')">Connexion</button>
+        <button class="auth-tab" onclick="switchAuthTab('signup')">Inscription</button>
+      </div>
+      <div id="auth-form-area"></div>
     </div>
   </div>
 
   <script src="app.js"></script>
+  <script src="auth.js"></script>
 </body>
 </html>
