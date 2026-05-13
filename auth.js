@@ -11,21 +11,22 @@ let activeSession = null;
 let authInitialized = false;
 
 // ── Auth state ────────────────────────────────────
-sb.auth.onAuthStateChange(async (_event, session) => {
+sb.auth.onAuthStateChange(async (event, session) => {
   currentUser = session?.user ?? null;
   renderAuthHeader();
 
-  if (currentUser) {
+  if (event === 'INITIAL_SESSION') {
+    // Premier chargement / refresh de page
+    if (currentUser) {
+      await loadProfile();
+    } else {
+      showView('onboarding');
+    }
+  } else if (event === 'SIGNED_IN') {
+    // Connexion → charger le profil et router
     await loadProfile();
-  } else {
-    // Pas connecté (ou déconnexion) → reset propre
-    resetState();
-    document.getElementById('main-nav').classList.add('hidden');
-    goToOnboardingStep(1);
-    showView('onboarding');
   }
-
-  authInitialized = true;
+  // SIGNED_OUT, TOKEN_REFRESHED, USER_UPDATED → géré ailleurs ou sans routing
 });
 
 // ── Reset UI state ────────────────────────────────
@@ -122,8 +123,13 @@ async function signUp() {
 
 async function signOut() {
   await sb.auth.signOut();
+  currentUser = null;
+  renderAuthHeader();
+  resetState();
+  document.getElementById('main-nav').classList.add('hidden');
+  goToOnboardingStep(1);
+  showView('onboarding');
   showToast('À bientôt !');
-  // onAuthStateChange prend le relais pour reset l'UI
 }
 
 // ── Profile persistence ───────────────────────────
@@ -216,6 +222,24 @@ function launchSession(label, exercices) {
   card.classList.remove('hidden');
 
   document.getElementById('session-log').innerHTML = exercices.map((ex, i) => {
+    const isCardio = !ex.muscle;
+
+    if (isCardio) {
+      return `
+        <div class="session-exercise">
+          <div class="session-ex-header">
+            <span class="session-ex-name">${ex.nom}</span>
+            <span class="session-ex-sets-label">${ex.sets}</span>
+          </div>
+          <div class="cardio-done-row">
+            <label class="cardio-check-label">
+              <input type="checkbox" onchange="logCardio(${i}, this.checked)" style="width:18px;height:18px;accent-color:#f97316;cursor:pointer"/>
+              <span>Effectué</span>
+            </label>
+          </div>
+        </div>`;
+    }
+
     const setCount = parseInt(ex.sets?.match(/\d+/)?.[0]) || 3;
     const rows = Array.from({ length: Math.min(setCount, 5) }, (_, s) => `
       <div class="set-row">
@@ -246,6 +270,11 @@ function logSet(exIdx, setIdx, field, value) {
   if (!activeSession.logs[exIdx]) activeSession.logs[exIdx] = {};
   if (!activeSession.logs[exIdx][setIdx]) activeSession.logs[exIdx][setIdx] = {};
   activeSession.logs[exIdx][setIdx][field] = parseFloat(value);
+}
+
+function logCardio(exIdx, done) {
+  if (!activeSession.logs[exIdx]) activeSession.logs[exIdx] = {};
+  activeSession.logs[exIdx][0] = { done };
 }
 
 function cancelSession() {

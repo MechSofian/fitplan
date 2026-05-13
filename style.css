@@ -279,6 +279,8 @@ select option { background: #1f2937; }
 .session-sets-input { display: flex; flex-direction: column; gap: 8px; }
 .set-row { display: flex; align-items: center; gap: 10px; }
 .set-num { font-size: 12px; color: #6b7280; font-weight: 600; width: 52px; flex-shrink: 0; }
+.cardio-done-row { padding: 8px 0; }
+.cardio-check-label { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #9ca3af; cursor: pointer; }
 
 /* ===== Rest day modal ===== */
 .rest-session-grid {
