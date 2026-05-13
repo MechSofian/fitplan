@@ -13,12 +13,10 @@ let _expectSignedOut = false; // flag pour le SIGNED_OUT non-bloquant
 // ── Auth state ────────────────────────────────────
 sb.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_OUT') {
-    // Ignorer si c'est un SIGNED_OUT résiduel d'une déco précédente
-    // pendant que l'utilisateur s'est déjà reconnecté
-    if (!_expectSignedOut) return;
+    // signOut() a déjà réinitialisé l'UI de façon synchrone —
+    // si l'utilisateur s'est reconnecté depuis, currentUser est déjà
+    // le nouveau compte. On vide juste le flag et on ne fait rien d'autre.
     _expectSignedOut = false;
-    currentUser = null;
-    renderAuthHeader();
     return;
   }
 
@@ -150,7 +148,6 @@ async function signUp() {
 }
 
 function signOut() {
-  // Reset UI immédiatement — ne jamais bloquer sur Supabase
   _expectSignedOut = true;
   currentUser = null;
   renderAuthHeader();
@@ -160,7 +157,12 @@ function signOut() {
   showView('onboarding');
   showToast('À bientôt !');
 
-  // Signout Supabase en arrière-plan (non-bloquant)
+  // Vider la session du localStorage immédiatement pour que le refresh
+  // affiche bien la page déconnectée, même si Supabase est lent
+  Object.keys(localStorage)
+    .filter(k => k.startsWith('sb-'))
+    .forEach(k => localStorage.removeItem(k));
+
   sb.auth.signOut().catch(e => {
     console.error('[FitPlan] signOut:', e);
     _expectSignedOut = false;
@@ -360,7 +362,18 @@ function cancelSession() {
 }
 
 async function saveSession() {
-  if (!currentUser) { showToast('⚠️ Connecte-toi pour enregistrer'); return; }
+  // Re-vérifier la session si currentUser a été effacé par une race condition
+  if (!currentUser) {
+    try {
+      const { data: { user } } = await sb.auth.getUser();
+      if (user) currentUser = user;
+    } catch { /* ignore */ }
+  }
+  if (!currentUser) {
+    showToast('⚠️ Connecte-toi pour enregistrer ta séance');
+    openAuthModal('login');
+    return;
+  }
   if (!activeSession) { showToast('⚠️ Aucune séance active'); return; }
 
   try {
