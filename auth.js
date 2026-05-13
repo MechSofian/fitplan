@@ -8,7 +8,6 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 let currentUser   = null;
 let activeSession = null;
-let authInitialized = false;
 
 // ── Auth state ────────────────────────────────────
 sb.auth.onAuthStateChange(async (event, session) => {
@@ -16,17 +15,15 @@ sb.auth.onAuthStateChange(async (event, session) => {
   renderAuthHeader();
 
   if (event === 'INITIAL_SESSION') {
-    // Premier chargement / refresh de page
     if (currentUser) {
       await loadProfile();
     } else {
       showView('onboarding');
     }
   } else if (event === 'SIGNED_IN') {
-    // Connexion → charger le profil et router
     await loadProfile();
   }
-  // SIGNED_OUT, TOKEN_REFRESHED, USER_UPDATED → géré ailleurs ou sans routing
+  // TOKEN_REFRESHED / USER_UPDATED : pas de re-routing
 });
 
 // ── Reset UI state ────────────────────────────────
@@ -39,10 +36,9 @@ function resetState() {
   state.objectif = null;
   state.jours    = 4;
 
-  // Remettre les inputs à zéro
-  const ageEl = document.getElementById('age');
+  const ageEl    = document.getElementById('age');
   const tailleEl = document.getElementById('taille');
-  const poidsEl = document.getElementById('poids');
+  const poidsEl  = document.getElementById('poids');
   if (ageEl)    ageEl.value = '';
   if (tailleEl) tailleEl.value = '';
   if (poidsEl)  poidsEl.value = '';
@@ -104,25 +100,52 @@ async function signIn() {
   const email = document.getElementById('auth-email').value.trim();
   const pwd   = document.getElementById('auth-pwd').value;
   const err   = document.getElementById('auth-error');
-  const { error } = await sb.auth.signInWithPassword({ email, password: pwd });
-  if (error) { err.textContent = 'Email ou mot de passe incorrect.'; err.classList.remove('hidden'); return; }
-  closeAuthModal();
-  showToast('✓ Connecté !');
+  err.classList.add('hidden');
+
+  try {
+    const { error } = await sb.auth.signInWithPassword({ email, password: pwd });
+    if (error) throw error;
+    closeAuthModal();
+    showToast('✓ Connecté !');
+  } catch (e) {
+    console.error('[FitPlan] signIn:', e);
+    err.textContent = e.message?.includes('Invalid login') ? 'Email ou mot de passe incorrect.' : `Erreur : ${e.message}`;
+    err.classList.remove('hidden');
+  }
 }
 
 async function signUp() {
   const email = document.getElementById('auth-email').value.trim();
   const pwd   = document.getElementById('auth-pwd').value;
   const err   = document.getElementById('auth-error');
-  if (pwd.length < 6) { err.textContent = 'Mot de passe trop court (min. 6 caractères).'; err.classList.remove('hidden'); return; }
-  const { error } = await sb.auth.signUp({ email, password: pwd });
-  if (error) { err.textContent = error.message; err.classList.remove('hidden'); return; }
-  closeAuthModal();
-  showToast('✓ Compte créé ! Vérifie ta boîte mail pour confirmer.');
+  err.classList.add('hidden');
+
+  if (pwd.length < 6) {
+    err.textContent = 'Mot de passe trop court (min. 6 caractères).';
+    err.classList.remove('hidden');
+    return;
+  }
+
+  try {
+    const { error } = await sb.auth.signUp({ email, password: pwd });
+    if (error) throw error;
+    closeAuthModal();
+    showToast('✓ Compte créé ! Vérifie ta boîte mail pour confirmer.');
+  } catch (e) {
+    console.error('[FitPlan] signUp:', e);
+    err.textContent = `Erreur : ${e.message}`;
+    err.classList.remove('hidden');
+  }
 }
 
 async function signOut() {
-  await sb.auth.signOut();
+  try {
+    const { error } = await sb.auth.signOut();
+    if (error) console.error('[FitPlan] signOut error:', error);
+  } catch (e) {
+    console.error('[FitPlan] signOut exception:', e);
+  }
+  // Reset UI quoi qu'il arrive
   currentUser = null;
   renderAuthHeader();
   resetState();
@@ -135,42 +158,64 @@ async function signOut() {
 // ── Profile persistence ───────────────────────────
 async function loadProfile() {
   if (!currentUser) return;
-  const { data } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
-  if (!data?.objectif) {
-    // Premier passage → onboarding
-    goToOnboardingStep(1);
+
+  try {
+    const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+
+    if (error && error.code !== 'PGRST116') {
+      // PGRST116 = no rows found (premier passage)
+      console.error('[FitPlan] loadProfile error:', error);
+      showToast('⚠️ Erreur chargement profil — ' + error.message);
+    }
+
+    if (!data?.objectif) {
+      goToOnboardingStep(1);
+      showView('onboarding');
+      return;
+    }
+
+    if (data.genre)    { state.genre = data.genre; document.querySelectorAll('.genre-btn').forEach(b => b.classList.toggle('active', b.dataset.value === data.genre)); }
+    if (data.age)      { state.age = data.age;         document.getElementById('age').value = data.age; }
+    if (data.taille)   { state.taille = data.taille;   document.getElementById('taille').value = data.taille; }
+    if (data.poids)    { state.poids = data.poids;     document.getElementById('poids').value = data.poids; }
+    if (data.activite) { state.activite = data.activite; document.getElementById('activite').value = data.activite; }
+    if (data.objectif) {
+      state.objectif = data.objectif;
+      const card = document.querySelector(`.objectif-card[data-value="${data.objectif}"]`);
+      if (card) { card.classList.add('selected'); showDaysSection(); }
+    }
+    if (data.jours) { state.jours = data.jours; setJours(data.jours); }
+
+    renderDashboard();
+    renderProfile();
+    document.getElementById('main-nav').classList.remove('hidden');
+    showView('dashboard');
+    loadHistory();
+  } catch (e) {
+    console.error('[FitPlan] loadProfile exception:', e);
+    showToast('⚠️ Impossible de charger le profil. Vérifie ta connexion.');
     showView('onboarding');
-    return;
   }
-
-  // Restaurer state
-  if (data.genre)    { state.genre = data.genre; document.querySelectorAll('.genre-btn').forEach(b => b.classList.toggle('active', b.dataset.value === data.genre)); }
-  if (data.age)      { state.age = data.age;         document.getElementById('age').value = data.age; }
-  if (data.taille)   { state.taille = data.taille;   document.getElementById('taille').value = data.taille; }
-  if (data.poids)    { state.poids = data.poids;     document.getElementById('poids').value = data.poids; }
-  if (data.activite) { state.activite = data.activite; document.getElementById('activite').value = data.activite; }
-  if (data.objectif) {
-    state.objectif = data.objectif;
-    const card = document.querySelector(`.objectif-card[data-value="${data.objectif}"]`);
-    if (card) { card.classList.add('selected'); showDaysSection(); }
-  }
-  if (data.jours) { state.jours = data.jours; setJours(data.jours); }
-
-  renderDashboard();
-  renderProfile();
-  document.getElementById('main-nav').classList.remove('hidden');
-  showView('dashboard');
-  loadHistory();
 }
 
 async function saveProfile() {
   if (!currentUser) return;
-  await sb.from('profiles').upsert({
-    id: currentUser.id,
-    genre: state.genre, age: state.age, taille: state.taille, poids: state.poids,
-    activite: state.activite, objectif: state.objectif, jours: state.jours,
-    updated_at: new Date().toISOString(),
-  });
+
+  try {
+    const { error } = await sb.from('profiles').upsert({
+      id: currentUser.id,
+      genre: state.genre, age: state.age, taille: state.taille, poids: state.poids,
+      activite: state.activite, objectif: state.objectif, jours: state.jours,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) {
+      console.error('[FitPlan] saveProfile error:', error);
+      showToast('⚠️ Erreur sauvegarde profil — ' + error.message);
+    }
+  } catch (e) {
+    console.error('[FitPlan] saveProfile exception:', e);
+    showToast('⚠️ Impossible de sauvegarder. Vérifie ta connexion.');
+  }
 }
 
 // Intercept generateAndGo pour sauvegarder après
@@ -286,73 +331,82 @@ async function saveSession() {
   if (!currentUser) { showToast('⚠️ Connecte-toi pour enregistrer'); return; }
   if (!activeSession) { showToast('⚠️ Aucune séance active'); return; }
 
-  const { data: session, error } = await sb.from('sessions').insert({
-    user_id: currentUser.id,
-    objectif: state.objectif,
-    jours: state.jours,
-    label: activeSession.label,
-  }).select().single();
+  try {
+    const { data: session, error } = await sb.from('sessions').insert({
+      user_id: currentUser.id,
+      objectif: state.objectif,
+      jours: state.jours,
+      label: activeSession.label,
+    }).select().single();
 
-  if (error) {
-    console.error('[FitPlan] saveSession error:', error);
-    showToast('❌ ' + (error.message ?? 'Erreur sauvegarde — vérifie la console'));
-    return;
+    if (error) throw error;
+
+    const logs = activeSession.exercices
+      .map((ex, i) => ({
+        session_id:    session.id,
+        user_id:       currentUser.id,
+        exercise_name: ex.nom,
+        sets:          Object.values(activeSession.logs[i] ?? {}),
+      }))
+      .filter(l => l.sets.length > 0);
+
+    if (logs.length > 0) {
+      const { error: logErr } = await sb.from('exercise_logs').insert(logs);
+      if (logErr) console.error('[FitPlan] exercise_logs error:', logErr);
+    }
+
+    cancelSession();
+    showToast('✓ Séance enregistrée !');
+    loadHistory();
+  } catch (e) {
+    console.error('[FitPlan] saveSession error:', e);
+    showToast('❌ ' + (e.message ?? 'Erreur sauvegarde — vérifie la console'));
   }
-
-  // Log les exercices où au moins une série a été renseignée
-  const logs = activeSession.exercices
-    .map((ex, i) => ({
-      session_id:    session.id,
-      user_id:       currentUser.id,
-      exercise_name: ex.nom,
-      sets:          Object.values(activeSession.logs[i] ?? {}),
-    }))
-    .filter(l => l.sets.length > 0);
-
-  if (logs.length > 0) {
-    const { error: logErr } = await sb.from('exercise_logs').insert(logs);
-    if (logErr) console.error('[FitPlan] exercise_logs error:', logErr);
-  }
-
-  cancelSession();
-  showToast('✓ Séance enregistrée !');
-  loadHistory();
 }
 
 // ── Historique ────────────────────────────────────
 async function loadHistory() {
   if (!currentUser) return;
-  const { data: sessions } = await sb
-    .from('sessions').select('*, exercise_logs(*)')
-    .eq('user_id', currentUser.id)
-    .order('created_at', { ascending: false })
-    .limit(10);
 
-  if (!sessions?.length) {
-    const empty = '<p style="color:#6b7280;font-size:13px">Aucune séance enregistrée pour l\'instant.</p>';
-    ['dash-history', 'profile-history'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.innerHTML = empty;
-    });
-    return;
+  try {
+    const { data: sessions, error } = await sb
+      .from('sessions').select('*, exercise_logs(*)')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) throw error;
+
+    if (!sessions?.length) {
+      const empty = '<p style="color:#6b7280;font-size:13px">Aucune séance enregistrée pour l\'instant.</p>';
+      ['dash-history', 'profile-history'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = empty;
+      });
+      return;
+    }
+
+    const html = sessions.map(s => {
+      const date    = new Date(s.created_at).toLocaleDateString('fr-FR', { weekday:'short', day:'numeric', month:'short' });
+      const exCount = s.exercise_logs?.length ?? 0;
+      return `
+        <div class="history-item">
+          <div class="history-date">${date}</div>
+          <div class="history-label">${s.label}</div>
+          <div class="history-meta">${exCount} exercice${exCount > 1 ? 's' : ''}</div>
+        </div>`;
+    }).join('');
+
+    const dashHistory = document.getElementById('dash-history');
+    if (dashHistory) dashHistory.innerHTML = sessions.length
+      ? html.split('</div>').slice(0, 5).join('</div>') + '</div>'
+      : '<p style="color:#6b7280;font-size:13px">Aucune séance.</p>';
+
+    const profileHistory = document.getElementById('profile-history');
+    if (profileHistory) profileHistory.innerHTML = html;
+  } catch (e) {
+    console.error('[FitPlan] loadHistory error:', e);
   }
-
-  const html = sessions.map(s => {
-    const date     = new Date(s.created_at).toLocaleDateString('fr-FR', { weekday:'short', day:'numeric', month:'short' });
-    const exCount  = s.exercise_logs?.length ?? 0;
-    return `
-      <div class="history-item">
-        <div class="history-date">${date}</div>
-        <div class="history-label">${s.label}</div>
-        <div class="history-meta">${exCount} exercice${exCount > 1 ? 's' : ''}</div>
-      </div>`;
-  }).join('');
-
-  const dashHistory = document.getElementById('dash-history');
-  if (dashHistory) dashHistory.innerHTML = sessions.length ? html.split('</div>').slice(0,5).join('</div>') + '</div>' : '<p style="color:#6b7280;font-size:13px">Aucune séance.</p>';
-
-  const profileHistory = document.getElementById('profile-history');
-  if (profileHistory) profileHistory.innerHTML = html;
 }
 
 // ── Toast ─────────────────────────────────────────
