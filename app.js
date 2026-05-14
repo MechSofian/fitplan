@@ -4,6 +4,8 @@
 
 // ── State ─────────────────────────────────────────
 const state = {
+  prenom: null, nom: null,
+  niveau: 'debutant',                // 'debutant' | 'intermediaire' | 'avance'
   genre: 'male',
   age: null, taille: null, poids: null,
   activite: 1.55,
@@ -116,6 +118,15 @@ document.querySelectorAll('.genre-btn').forEach(btn => {
   });
 });
 
+// ── Niveau toggle ─────────────────────────────────
+document.querySelectorAll('.niveau-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.niveau-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.niveau = btn.dataset.niveau;
+  });
+});
+
 // ── Objectif + jours ──────────────────────────────
 const DAYS_DESC = {
   perte:   { 2:'2 Full Body — idéal si ton emploi du temps est chargé.', 3:'3 Full Body — le classique pour perdre du gras.', 4:'3 Full Body + 1 Cardio — combinaison optimale.', 5:'3 Full Body + 2 Cardio — accélère la perte.', 6:'4 Full Body + 2 Cardio — programme intensif.' },
@@ -160,6 +171,59 @@ function generateAndGo() {
   showView('dashboard');
   document.getElementById('main-nav')?.classList.remove('hidden');
   // saveProfile() est appelé par l'intercepteur dans auth.js
+}
+
+// ── Poids/Reps suggérés selon niveau ──────────────
+// type 'bw' = multiplicateur du poids de corps  |  type 'kg' = valeur absolue
+const SUGGESTED = {
+  'Développé couché barre':       { type:'bw', debutant:0.45, intermediaire:0.65, avance:0.85 },
+  'Développé incliné haltères':   { type:'bw', debutant:0.18, intermediaire:0.26, avance:0.36 },
+  'Écarté poulie basse':         { type:'kg', debutant:8,    intermediaire:14,   avance:22   },
+  'Pompes lestées':              { type:'kg', debutant:0,    intermediaire:5,    avance:15   },
+  'Tractions / Lat pulldown':    { type:'bw', debutant:0.45, intermediaire:0.65, avance:0.90 },
+  'Rowing barre':                { type:'bw', debutant:0.45, intermediaire:0.65, avance:0.85 },
+  'Rowing haltère 1 bras':       { type:'bw', debutant:0.18, intermediaire:0.28, avance:0.40 },
+  'Face pull poulie':            { type:'kg', debutant:12,   intermediaire:20,   avance:30   },
+  'Développé militaire barre':   { type:'bw', debutant:0.30, intermediaire:0.45, avance:0.60 },
+  'Élévations latérales':       { type:'kg', debutant:5,    intermediaire:9,    avance:14   },
+  'Élévations frontales':       { type:'kg', debutant:5,    intermediaire:8,    avance:12   },
+  'Oiseau poulie':               { type:'kg', debutant:8,    intermediaire:14,   avance:20   },
+  'Curl barre EZ':               { type:'kg', debutant:15,   intermediaire:25,   avance:35   },
+  'Curl haltères marteau':       { type:'kg', debutant:8,    intermediaire:14,   avance:20   },
+  'Dips lestés / Barre au front':{ type:'kg', debutant:0,    intermediaire:10,   avance:20   },
+  'Pushdown poulie':             { type:'kg', debutant:15,   intermediaire:25,   avance:40   },
+  'Squat barre':                 { type:'bw', debutant:0.65, intermediaire:0.90, avance:1.20 },
+  'Presse à cuisses':           { type:'bw', debutant:1.20, intermediaire:1.80, avance:2.50 },
+  'Soulevé de terre roumain':   { type:'bw', debutant:0.70, intermediaire:1.00, avance:1.30 },
+  'Fentes marchées':             { type:'kg', debutant:8,    intermediaire:14,   avance:22   },
+  'Leg curl couché':             { type:'kg', debutant:20,   intermediaire:35,   avance:55   },
+  'Mollets debout':              { type:'kg', debutant:30,   intermediaire:60,   avance:100  },
+  'Hip thrust barre':            { type:'bw', debutant:0.80, intermediaire:1.20, avance:1.60 },
+  'Mollets assis':               { type:'kg', debutant:15,   intermediaire:30,   avance:60   },
+};
+function suggestedKg(exName, bodyweight, niveau, genre) {
+  const cfg = SUGGESTED[exName];
+  if (!cfg || !bodyweight) return null;
+  const base = cfg[niveau] ?? cfg.debutant;
+  const genreMult = genre === 'female' ? 0.65 : 1.0;
+  const val = cfg.type === 'bw' ? bodyweight * base * genreMult : base * genreMult;
+  return Math.round(val * 2) / 2; // arrondi 0.5kg
+}
+function suggestedReps(setsString) {
+  // "4×6–8" → 6 ; "3×12" → 12 ; "3×15–20" → 15
+  const m = setsString?.match(/×\s*(\d+)/);
+  return m ? parseInt(m[1]) : 10;
+}
+
+// Cache des dernières perfs par exercice (rempli par loadLastLogs en auth.js)
+let _lastExerciseLogs = {};
+function getSetDefaults(ex) {
+  const last = _lastExerciseLogs[ex.nom];
+  if (last?.weight) return { weight: last.weight, reps: last.reps };
+  return {
+    weight: suggestedKg(ex.nom, state.poids, state.niveau, state.genre),
+    reps:   suggestedReps(ex.sets),
+  };
 }
 
 // ── Calculations ──────────────────────────────────
@@ -291,8 +355,12 @@ function renderDashboard() {
   const objLabel = { perte:'Perte de poids', maintien:'Maintien / Recomposition', masse:'Prise de masse' }[objectif];
   const banner = document.getElementById('today-banner');
   const isRest = todayProg.type === 'rest';
+  const h = new Date().getHours();
+  const greet = h < 6 ? 'Bonne nuit' : h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
+  const greetLine = state.prenom ? `${greet}, <span style="color:#fb923c">${state.prenom}</span> 👋` : `${greet} 👋`;
   banner.innerHTML = `
     <div class="today-left">
+      <div class="today-greet">${greetLine}</div>
       <div class="today-meta">${objLabel} · ${jours} jours/semaine</div>
       <div class="today-day">${isRest ? '💤 Aujourd\'hui : Repos' : `Aujourd'hui — ${todayProg.label}`}</div>
       ${isRest ? '<div class="today-sub">Récupération active : étirements, marche légère.</div>' : `<div class="today-sub">${todayProg.exercices.length} exercices · Bonne séance 💪</div>`}
@@ -388,7 +456,10 @@ function renderProfile() {
 
   const row = (label, val) => `<div class="profile-row"><span class="profile-row-label">${label}</span><span class="profile-row-val">${val}</span></div>`;
 
+  const niveauLabels = { debutant:'🌱 Débutant', intermediaire:'🔥 Intermédiaire', avance:'💪 Avancé' };
   document.getElementById('profile-identity').innerHTML =
+    (state.prenom || state.nom ? row('Nom', `${state.prenom ?? ''} ${state.nom ?? ''}`.trim()) : '') +
+    row('Niveau',   niveauLabels[state.niveau] ?? state.niveau) +
     row('Genre',    genre === 'male' ? 'Homme' : 'Femme') +
     row('Âge',      `${age} ans`) +
     row('Taille',   `${taille} cm`) +

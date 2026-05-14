@@ -9,7 +9,7 @@
   <title>FitPlan — Programme Personnalisé</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="stylesheet" href="style.css?v=13" />
+  <link rel="stylesheet" href="style.css?v=14" />
   <script>
     tailwind.config = {
       theme: { extend: { colors: { brand: { 500: '#f97316', 600: '#ea580c' } } } }
@@ -99,6 +99,27 @@
                 <option value="1.9">Extrêmement actif — travail physique + sport quotidien</option>
               </select>
             </div>
+            <div class="field-group sm:col-span-2">
+              <label>Niveau d'expérience en musculation</label>
+              <div class="niveau-btns mt-2">
+                <button type="button" class="niveau-btn active" data-niveau="debutant">
+                  <span class="niveau-icon">🌱</span>
+                  <span class="niveau-title">Débutant</span>
+                  <span class="niveau-sub">&lt; 6 mois</span>
+                </button>
+                <button type="button" class="niveau-btn" data-niveau="intermediaire">
+                  <span class="niveau-icon">🔥</span>
+                  <span class="niveau-title">Intermédiaire</span>
+                  <span class="niveau-sub">6 mois – 2 ans</span>
+                </button>
+                <button type="button" class="niveau-btn" data-niveau="avance">
+                  <span class="niveau-icon">💪</span>
+                  <span class="niveau-title">Avancé</span>
+                  <span class="niveau-sub">2+ ans</span>
+                </button>
+              </div>
+              <p class="text-xs text-gray-500 mt-2">Sert à pré-remplir les poids des premières séances. Tu pourras tout ajuster ensuite.</p>
+            </div>
           </div>
 
           <div id="step1-error" class="hidden mt-4 text-red-400 text-sm bg-red-900/30 px-4 py-2 rounded-lg"></div>
@@ -186,6 +207,15 @@
           </div>
         </div>
         <div id="session-log"></div>
+      </div>
+
+      <!-- Progression hebdomadaire -->
+      <div class="card mb-6">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <h2 class="text-lg font-bold flex items-center gap-2"><span>📈</span> Progression — Cette semaine vs précédente</h2>
+          <span class="text-xs text-gray-500">Volume total (kg × répétitions)</span>
+        </div>
+        <div id="dash-progression"></div>
       </div>
 
       <!-- Grille basse : Nutrition + Historique + Conseils -->
@@ -324,7 +354,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=13"></script>
-  <script src="auth.js?v=13"></script>
+  <script src="app.js?v=14"></script>
+  <script src="auth.js?v=14"></script>
 </body>
 </html>
