@@ -64,7 +64,9 @@ let _tutorialStep = 0;
 
 function startTutorial() {
   _tutorialStep = 0;
-  showTutorialStep();
+  // S'assure d'être sur le dashboard (les targets sont dessus)
+  if (typeof showView === 'function') showView('dashboard');
+  setTimeout(() => showTutorialStep(), 150);
 }
 function showTutorialStep() {
   const step = TUTORIAL_STEPS[_tutorialStep];
@@ -72,12 +74,15 @@ function showTutorialStep() {
 
   document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
 
-  let overlay = document.getElementById('tutorial-overlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'tutorial-overlay';
-    overlay.className = 'tutorial-overlay';
-    document.body.appendChild(overlay);
+  // Structure : wrap (no z-index) contenant backdrop (z=90) + positioner+card (z=100)
+  let wrap = document.getElementById('tutorial-wrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'tutorial-wrap';
+    wrap.innerHTML = `
+      <div class="tutorial-backdrop" onclick="endTutorial()"></div>
+      <div class="tutorial-positioner"><div class="tutorial-card" id="tutorial-card"></div></div>`;
+    document.body.appendChild(wrap);
   }
 
   if (step.target) {
@@ -90,18 +95,17 @@ function showTutorialStep() {
 
   const isFirst = _tutorialStep === 0;
   const isLast  = _tutorialStep === TUTORIAL_STEPS.length - 1;
-  overlay.innerHTML = `
-    <div class="tutorial-card">
-      <div class="tutorial-progress">
-        ${TUTORIAL_STEPS.map((_, i) => `<span class="tutorial-dot ${i === _tutorialStep ? 'active' : ''}"></span>`).join('')}
-      </div>
-      <h3 class="tutorial-title">${step.title}</h3>
-      <p class="tutorial-text">${step.text}</p>
-      <div class="tutorial-actions">
-        <button class="btn-secondary" onclick="endTutorial()">Passer</button>
-        ${!isFirst ? `<button class="btn-secondary" onclick="tutorialPrev()">← Préc.</button>` : ''}
-        <button class="btn-primary" onclick="tutorialNext()">${isLast ? '✓ Terminer' : 'Suivant →'}</button>
-      </div>
+  const card = document.getElementById('tutorial-card');
+  card.innerHTML = `
+    <div class="tutorial-progress">
+      ${TUTORIAL_STEPS.map((_, i) => `<span class="tutorial-dot ${i === _tutorialStep ? 'active' : ''}"></span>`).join('')}
+    </div>
+    <h3 class="tutorial-title">${step.title}</h3>
+    <p class="tutorial-text">${step.text}</p>
+    <div class="tutorial-actions">
+      <button class="btn-secondary" onclick="endTutorial()">Passer</button>
+      ${!isFirst ? `<button class="btn-secondary" onclick="tutorialPrev()">← Préc.</button>` : ''}
+      <button class="btn-primary" onclick="tutorialNext()">${isLast ? '✓ Terminer' : 'Suivant →'}</button>
     </div>`;
 }
 function tutorialNext() {
@@ -114,6 +118,7 @@ function tutorialPrev() {
   showTutorialStep();
 }
 function endTutorial() {
+  document.getElementById('tutorial-wrap')?.remove();
   document.getElementById('tutorial-overlay')?.remove();
   document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
   try { localStorage.setItem('fitplan-tutorial-seen', '1'); } catch {}
@@ -1960,7 +1965,7 @@ document.addEventListener('keydown', e => {
     closeEditPRModal();
     closeBodyWeightModal();
     if (!document.getElementById('focus-overlay')?.classList.contains('hidden')) exitFocusMode();
-    if (document.getElementById('tutorial-overlay')) endTutorial();
+    if (document.getElementById('tutorial-wrap') || document.getElementById('tutorial-overlay')) endTutorial();
   }
 });
 

@@ -664,14 +664,19 @@ select option { background: #1f2937; }
 /* ═══════════════════════════════════════════════════
    TUTORIEL ONBOARDING
    ═══════════════════════════════════════════════════ */
-.tutorial-overlay {
+.tutorial-backdrop {
   position: fixed; inset: 0; z-index: 90;
-  background: rgba(0,0,0,.65);
+  background: rgba(0,0,0,.7);
   backdrop-filter: blur(2px);
+}
+.tutorial-positioner {
+  position: fixed; inset: 0; z-index: 100;
   display: flex; align-items: center; justify-content: center;
   padding: 20px;
+  pointer-events: none;
 }
 .tutorial-card {
+  pointer-events: auto;
   background: linear-gradient(135deg, #1a1f2e, #111827);
   border: 1.5px solid #f97316;
   border-radius: 18px;
@@ -710,14 +715,14 @@ select option { background: #1f2937; }
 
 .tutorial-highlight {
   position: relative;
-  z-index: 91 !important;
-  box-shadow: 0 0 0 4px rgba(249,115,22,.5), 0 0 30px rgba(249,115,22,.7) !important;
+  z-index: 95 !important;
+  box-shadow: 0 0 0 4px rgba(249,115,22,.6), 0 0 30px rgba(249,115,22,.8) !important;
   border-radius: 12px;
   animation: tutorial-pulse 1.5s ease-in-out infinite;
 }
 @keyframes tutorial-pulse {
-  0%,100% { box-shadow: 0 0 0 4px rgba(249,115,22,.5), 0 0 30px rgba(249,115,22,.7); }
-  50%     { box-shadow: 0 0 0 6px rgba(249,115,22,.7), 0 0 45px rgba(249,115,22,.9); }
+  0%,100% { box-shadow: 0 0 0 4px rgba(249,115,22,.6), 0 0 30px rgba(249,115,22,.8); }
+  50%     { box-shadow: 0 0 0 6px rgba(249,115,22,.8), 0 0 50px rgba(249,115,22,1); }
 }
 
 /* ═══════════════════════════════════════════════════
