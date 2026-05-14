@@ -298,12 +298,14 @@ async function loadProfile() {
                       : location.hash === '#agenda'  ? 'calendar'
                       : 'dashboard';
     showView(initialView);
+    if (initialView === 'dashboard' && typeof maybeShowTutorial === 'function') maybeShowTutorial();
     await loadHistory();
     loadLastLogs();
     renderProgression();
     renderStagnation();
     renderVolumeByMuscle();
     renderBadges();
+    renderHeatmap();
   } catch (e) {
     console.error('[FitPlan] loadProfile exception:', e);
     showToast('⚠️ Impossible de charger le profil. Vérifie ta connexion.');
@@ -600,6 +602,7 @@ async function saveSession() {
     renderStagnation();
     renderVolumeByMuscle();
     renderBadges();
+    renderHeatmap();
     loadStreak().then(() => renderDashboard());
   } catch (e) {
     console.error('[FitPlan] saveSession error:', e);
@@ -1242,6 +1245,7 @@ async function saveSessionDetail() {
     renderStagnation();
     renderVolumeByMuscle();
     renderBadges();
+    renderHeatmap();
     loadPRs();
     loadStreak().then(() => renderDashboard());
   } catch (e) {
@@ -1266,6 +1270,7 @@ async function deleteWholeSession() {
     renderStagnation();
     renderVolumeByMuscle();
     renderBadges();
+    renderHeatmap();
     loadPRs();
     loadStreak().then(() => renderDashboard());
   } catch (e) {

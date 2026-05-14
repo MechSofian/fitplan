@@ -661,6 +661,246 @@ select option { background: #1f2937; }
   .cal-cell  { aspect-ratio: 1 / 1.1; }
 }
 
+/* ═══════════════════════════════════════════════════
+   TUTORIEL ONBOARDING
+   ═══════════════════════════════════════════════════ */
+.tutorial-overlay {
+  position: fixed; inset: 0; z-index: 90;
+  background: rgba(0,0,0,.65);
+  backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.tutorial-card {
+  background: linear-gradient(135deg, #1a1f2e, #111827);
+  border: 1.5px solid #f97316;
+  border-radius: 18px;
+  padding: 24px;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(249,115,22,.3), 0 8px 24px rgba(0,0,0,.5);
+  animation: tutorial-pop 0.25s ease-out;
+}
+@keyframes tutorial-pop {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.tutorial-progress {
+  display: flex; gap: 5px; justify-content: center;
+  margin-bottom: 16px;
+}
+.tutorial-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #374151; transition: all 0.2s;
+}
+.tutorial-dot.active { background: #f97316; width: 24px; border-radius: 4px; }
+.tutorial-title {
+  font-size: 19px; font-weight: 800; color: white;
+  margin-bottom: 10px; text-align: center;
+}
+.tutorial-text {
+  font-size: 14px; color: #d1d5db; line-height: 1.5;
+  margin-bottom: 20px; text-align: center;
+}
+.tutorial-text b { color: #fb923c; }
+.tutorial-actions {
+  display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+}
+.tutorial-actions button { padding: 9px 18px; font-size: 13px; }
+
+.tutorial-highlight {
+  position: relative;
+  z-index: 91 !important;
+  box-shadow: 0 0 0 4px rgba(249,115,22,.5), 0 0 30px rgba(249,115,22,.7) !important;
+  border-radius: 12px;
+  animation: tutorial-pulse 1.5s ease-in-out infinite;
+}
+@keyframes tutorial-pulse {
+  0%,100% { box-shadow: 0 0 0 4px rgba(249,115,22,.5), 0 0 30px rgba(249,115,22,.7); }
+  50%     { box-shadow: 0 0 0 6px rgba(249,115,22,.7), 0 0 45px rgba(249,115,22,.9); }
+}
+
+/* ═══════════════════════════════════════════════════
+   HEAT MAP MUSCLES
+   ═══════════════════════════════════════════════════ */
+.heatmap-views {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  margin-bottom: 16px;
+}
+.heatmap-view {
+  background: rgba(255,255,255,.02);
+  border-radius: 12px;
+  padding: 8px;
+}
+.heatmap-body { display: block; width: 100%; max-width: 220px; margin: 0 auto; height: auto; }
+.heat-legend {
+  display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;
+  padding: 10px 0; margin-bottom: 10px;
+  border-top: 1px solid #1f2937; border-bottom: 1px solid #1f2937;
+}
+.heat-leg {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; color: #9ca3af; font-weight: 600;
+}
+.heat-dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.heat-stats {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-bottom: 10px;
+}
+.heat-stat {
+  background: #1a2035; border-radius: 6px;
+  padding: 5px 10px; font-size: 11px; color: #d1d5db;
+}
+.heat-stat b { color: #f1f5f9; font-weight: 700; margin-right: 4px; }
+.heat-note { font-size: 11px; color: #6b7280; line-height: 1.5; }
+@media (max-width: 480px) {
+  .heatmap-views { gap: 8px; }
+  .heat-leg { font-size: 10px; }
+  .heat-stat { font-size: 10px; padding: 4px 7px; }
+}
+body.theme-light .heatmap-view { background: #f9fafb; }
+body.theme-light .heat-stat { background: #f3f4f6; }
+
+/* ═══════════════════════════════════════════════════
+   FOCUS MODE (séance plein écran)
+   ═══════════════════════════════════════════════════ */
+.focus-overlay {
+  position: fixed; inset: 0; z-index: 70;
+  background: #030712;
+  display: flex; align-items: stretch; justify-content: center;
+  overflow-y: auto;
+}
+.focus-content {
+  width: 100%; max-width: 480px;
+  padding: 18px 20px 32px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.focus-topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 0;
+}
+.focus-icon-btn {
+  background: #1f2937; border: 1px solid #374151;
+  color: #d1d5db; width: 40px; height: 40px; border-radius: 12px;
+  font-size: 17px; cursor: pointer; transition: all 0.2s;
+}
+.focus-icon-btn:hover { background: #f97316; border-color: #f97316; color: white; }
+.focus-progress-text {
+  font-size: 12px; font-weight: 700; color: #9ca3af;
+  text-transform: uppercase; letter-spacing: .08em;
+}
+.focus-exo { text-align: center; padding: 12px 0; }
+.focus-exo-name {
+  font-size: 26px; font-weight: 900; color: white;
+  line-height: 1.15; margin-bottom: 4px;
+}
+.focus-exo-muscle { font-size: 13px; color: #9ca3af; font-weight: 600; margin-bottom: 8px; }
+.focus-exo-sets-info {
+  display: inline-block;
+  background: rgba(249,115,22,.12); color: #fb923c;
+  font-size: 13px; font-weight: 700;
+  padding: 5px 14px; border-radius: 20px;
+}
+.focus-set-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  background: #111827; border: 1px solid #1f2937;
+  padding: 12px 16px; border-radius: 12px;
+  font-size: 13px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .05em;
+}
+.focus-set-dots { display: flex; gap: 6px; }
+.focus-set-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #374151; transition: all 0.2s;
+}
+.focus-set-dot.current { background: #f97316; box-shadow: 0 0 8px rgba(249,115,22,.6); }
+.focus-set-dot.done { background: #16a34a; }
+.focus-inputs {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  padding: 16px 0;
+}
+.focus-input-box {
+  background: #111827; border: 1.5px solid #374151;
+  border-radius: 16px; padding: 12px 6px;
+  flex: 1; max-width: 160px;
+  transition: border-color 0.2s;
+}
+.focus-input-box:focus-within { border-color: #f97316; }
+.focus-input-box input {
+  display: block; width: 100%;
+  background: transparent; border: none; outline: none;
+  text-align: center;
+  font-size: 56px; font-weight: 900; color: white;
+  font-variant-numeric: tabular-nums;
+  padding: 0; margin: 0;
+}
+.focus-input-box input::-webkit-outer-spin-button,
+.focus-input-box input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.focus-input-box input[type=number] { -moz-appearance: textfield; }
+.focus-input-label {
+  text-align: center; font-size: 11px; color: #6b7280;
+  text-transform: uppercase; letter-spacing: .1em; font-weight: 700; margin-top: 4px;
+}
+.focus-x { font-size: 28px; color: #4b5563; font-weight: 700; }
+.focus-validate {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: white; font-weight: 800; font-size: 16px;
+  padding: 18px; border-radius: 14px; border: none; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(249,115,22,.4);
+  transition: all 0.15s;
+}
+.focus-validate:hover { transform: translateY(-1px); box-shadow: 0 8px 26px rgba(249,115,22,.5); }
+.focus-validate:active { transform: translateY(0); }
+.focus-navbar {
+  display: flex; gap: 8px; margin-top: auto; padding-top: 16px;
+}
+.focus-nav-btn {
+  flex: 1; background: #1f2937; border: 1px solid #374151;
+  color: #d1d5db; padding: 14px; border-radius: 12px;
+  font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s;
+}
+.focus-nav-btn:hover:not(:disabled) { background: #2a3344; border-color: #4b5563; }
+.focus-nav-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.focus-nav-btn.focus-finish {
+  background: rgba(22,163,74,.15); border-color: rgba(22,163,74,.4); color: #4ade80;
+}
+.focus-nav-btn.focus-finish:hover { background: rgba(22,163,74,.25); border-color: #16a34a; }
+
+.focus-cardio {
+  display: flex; flex-direction: column; align-items: center; gap: 20px;
+  padding: 32px 0;
+}
+.focus-cardio-label { font-size: 18px; font-weight: 700; color: #d1d5db; }
+.focus-cardio-toggle { position: relative; width: 90px; height: 50px; cursor: pointer; }
+.focus-cardio-toggle input { opacity: 0; width: 0; height: 0; }
+.focus-cardio-slider {
+  position: absolute; inset: 0;
+  background: #374151; border-radius: 25px;
+  transition: background 0.2s;
+}
+.focus-cardio-slider::before {
+  content: ''; position: absolute;
+  top: 4px; left: 4px;
+  width: 42px; height: 42px;
+  background: white; border-radius: 50%;
+  transition: transform 0.2s;
+}
+.focus-cardio-toggle input:checked + .focus-cardio-slider { background: #16a34a; }
+.focus-cardio-toggle input:checked + .focus-cardio-slider::before { transform: translateX(40px); }
+
+@media (max-width: 480px) {
+  .focus-content { padding: 14px 14px 24px; gap: 14px; }
+  .focus-exo-name { font-size: 22px; }
+  .focus-input-box input { font-size: 44px; }
+  .focus-validate { padding: 15px; font-size: 15px; }
+}
+
+body.theme-light .focus-overlay { background: #f9fafb; }
+body.theme-light .focus-exo-name { color: #111827; }
+body.theme-light .focus-input-box { background: #ffffff; border-color: #d1d5db; }
+body.theme-light .focus-input-box input { color: #111827; }
+body.theme-light .focus-set-bar { background: #ffffff; border-color: #e5e7eb; color: #4b5563; }
+body.theme-light .focus-nav-btn { background: #ffffff; border-color: #d1d5db; color: #374151; }
+
 /* ===== Toast ===== */
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);

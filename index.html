@@ -17,7 +17,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=26" />
+  <link rel="stylesheet" href="style.css?v=27" />
   <script>
     tailwind.config = {
       theme: { extend: { colors: { brand: { 500: '#f97316', 600: '#ea580c' } } } }
@@ -214,7 +214,8 @@
       <div class="card mb-6 hidden" id="session-card">
         <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
           <h2 class="text-xl font-bold flex items-center gap-2"><span>✅</span> Séance en cours — <span id="session-title" class="text-orange-400"></span></h2>
-          <div class="flex gap-2">
+          <div class="flex gap-2 flex-wrap">
+            <button class="btn-secondary" onclick="enterFocusMode()" title="Mode plein écran sans distraction">🔥 Focus</button>
             <button class="btn-secondary" onclick="cancelSession()">Annuler</button>
             <button class="btn-primary" onclick="saveSession()">Enregistrer ✓</button>
           </div>
@@ -323,9 +324,11 @@
         </div>
         <div class="flex gap-2 items-center flex-wrap">
           <div class="theme-toggle">
-            <button class="theme-toggle-btn active" data-theme="dark"  onclick="applyTheme('dark')"  title="Mode sombre">🌙</button>
-            <button class="theme-toggle-btn"        data-theme="light" onclick="applyTheme('light')" title="Mode clair">☀️</button>
+            <button class="theme-toggle-btn" data-theme="dark"  onclick="applyTheme('dark')"  title="Sombre">🌙</button>
+            <button class="theme-toggle-btn" data-theme="auto"  onclick="applyTheme('auto')"  title="Auto (suit l'OS)">🤖</button>
+            <button class="theme-toggle-btn" data-theme="light" onclick="applyTheme('light')" title="Clair">☀️</button>
           </div>
+          <button class="btn-secondary" style="padding:8px 12px" onclick="startTutorial()" title="Relancer le tutoriel">🎓</button>
           <button class="btn-primary" onclick="editProgram()">✏️ Modifier le programme</button>
         </div>
       </div>
@@ -348,6 +351,12 @@
           <div id="profile-nutrition" class="profile-data-list"></div>
         </div>
 
+      </div>
+
+      <!-- Heat map muscles travaillés -->
+      <div class="card mb-6">
+        <h2 class="text-lg font-bold mb-4 flex items-center gap-2"><span>🗺️</span> Muscles travaillés (7 derniers jours)</h2>
+        <div id="profile-heatmap"></div>
       </div>
 
       <!-- Suivi du poids corporel -->
@@ -392,6 +401,11 @@
 
   <!-- Toast -->
   <div id="toast" class="toast hidden"></div>
+
+  <!-- Focus mode overlay (séance plein écran) -->
+  <div id="focus-overlay" class="focus-overlay hidden">
+    <div id="focus-content" class="focus-content"></div>
+  </div>
 
   <!-- Rest timer flottant -->
   <div id="rest-timer" class="rest-timer hidden">
@@ -574,7 +588,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=26"></script>
-  <script src="auth.js?v=26"></script>
+  <script src="app.js?v=27"></script>
+  <script src="auth.js?v=27"></script>
 </body>
 </html>

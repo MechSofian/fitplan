@@ -17,28 +17,113 @@ const state = {
   customProgramme: null,             // null = auto, sinon array de 7 jours {type, label, exercices[]}
 };
 
-// ═══ Thème (clair / sombre) ════════════════════════
+// ═══ Thème (dark / auto / light) ═══════════════════
+let _themeMqListener = null;
 function applyTheme(theme) {
-  document.body.classList.toggle('theme-light', theme === 'light');
+  if (!['dark', 'light', 'auto'].includes(theme)) theme = 'dark';
+  // Détermine le thème effectif (auto suit l'OS)
+  const isOSLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+  const effective = theme === 'auto' ? (isOSLight ? 'light' : 'dark') : theme;
+  document.body.classList.toggle('theme-light', effective === 'light');
   try { localStorage.setItem('fitplan-theme', theme); } catch {}
-  // Refresh des boutons toggle dans l'UI s'ils existent
+
+  // Synchro des boutons toggle
   document.querySelectorAll('.theme-toggle-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.theme === theme);
   });
+
+  // Listener OS (uniquement en mode auto)
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  if (_themeMqListener) {
+    try { mq.removeEventListener('change', _themeMqListener); } catch { mq.removeListener?.(_themeMqListener); }
+    _themeMqListener = null;
+  }
+  if (theme === 'auto') {
+    _themeMqListener = (e) => document.body.classList.toggle('theme-light', !e.matches);
+    try { mq.addEventListener('change', _themeMqListener); } catch { mq.addListener?.(_themeMqListener); }
+  }
 }
 function loadTheme() {
   try {
-    const saved = localStorage.getItem('fitplan-theme');
-    if (saved === 'light') document.body.classList.add('theme-light');
-    // Synchronise les boutons toggle quand le DOM sera prêt
-    document.addEventListener('DOMContentLoaded', () => {
-      document.querySelectorAll('.theme-toggle-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.theme === (saved || 'dark'));
-      });
-    });
+    const saved = localStorage.getItem('fitplan-theme') || 'dark';
+    applyTheme(saved);
   } catch {}
 }
 loadTheme(); // applique immédiatement au chargement
+
+// ═══ Tutoriel onboarding ════════════════════════════
+const TUTORIAL_STEPS = [
+  { target: null,           title:'Bienvenue ! 👋',       text:'Petite visite de FitPlan en 6 étapes (30 secondes). Tu peux relancer ce tour à tout moment depuis ton profil.' },
+  { target:'#today-banner', title:'Ta séance du jour',    text:'Le programme prévu aujourd\'hui. Clique sur <b>▶ Démarrer</b> pour commencer à logger tes séries.' },
+  { target:'#week-grid',    title:'Semaine complète',      text:'Tes 7 jours. Utilise <b>⇄</b> pour échanger deux jours (ex: si tu rates le mardi), <b>✎</b> pour remplacer un exo, ou <b>🛠️ Personnaliser</b> pour tout refaire.' },
+  { target:'#nav-agenda',   title:'Agenda mensuel',        text:'Vue calendrier : séances faites en vert, manquées en rouge, prévues en orange. Clique sur un jour pour voir le détail.' },
+  { target:'#nav-profil',   title:'Profil & stats',        text:'Tes records, badges, suivi du poids, progression et historique recherchable.' },
+  { target: null,           title:'C\'est parti ! 💪',     text:'Bonnes séances ! Tu peux installer FitPlan sur ton mobile via le menu de ton navigateur ("Ajouter à l\'écran d\'accueil").' },
+];
+let _tutorialStep = 0;
+
+function startTutorial() {
+  _tutorialStep = 0;
+  showTutorialStep();
+}
+function showTutorialStep() {
+  const step = TUTORIAL_STEPS[_tutorialStep];
+  if (!step) return endTutorial();
+
+  document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
+
+  let overlay = document.getElementById('tutorial-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'tutorial-overlay';
+    overlay.className = 'tutorial-overlay';
+    document.body.appendChild(overlay);
+  }
+
+  if (step.target) {
+    const el = document.querySelector(step.target);
+    if (el) {
+      el.classList.add('tutorial-highlight');
+      try { el.scrollIntoView({ behavior:'smooth', block:'center' }); } catch {}
+    }
+  }
+
+  const isFirst = _tutorialStep === 0;
+  const isLast  = _tutorialStep === TUTORIAL_STEPS.length - 1;
+  overlay.innerHTML = `
+    <div class="tutorial-card">
+      <div class="tutorial-progress">
+        ${TUTORIAL_STEPS.map((_, i) => `<span class="tutorial-dot ${i === _tutorialStep ? 'active' : ''}"></span>`).join('')}
+      </div>
+      <h3 class="tutorial-title">${step.title}</h3>
+      <p class="tutorial-text">${step.text}</p>
+      <div class="tutorial-actions">
+        <button class="btn-secondary" onclick="endTutorial()">Passer</button>
+        ${!isFirst ? `<button class="btn-secondary" onclick="tutorialPrev()">← Préc.</button>` : ''}
+        <button class="btn-primary" onclick="tutorialNext()">${isLast ? '✓ Terminer' : 'Suivant →'}</button>
+      </div>
+    </div>`;
+}
+function tutorialNext() {
+  _tutorialStep++;
+  if (_tutorialStep >= TUTORIAL_STEPS.length) endTutorial();
+  else showTutorialStep();
+}
+function tutorialPrev() {
+  _tutorialStep = Math.max(0, _tutorialStep - 1);
+  showTutorialStep();
+}
+function endTutorial() {
+  document.getElementById('tutorial-overlay')?.remove();
+  document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
+  try { localStorage.setItem('fitplan-tutorial-seen', '1'); } catch {}
+}
+function maybeShowTutorial() {
+  try {
+    if (localStorage.getItem('fitplan-tutorial-seen') === '1') return;
+    setTimeout(() => startTutorial(), 800);
+  } catch {}
+}
 
 // ═══ PWA — enregistrement du service worker ═══════
 if ('serviceWorker' in navigator) {
@@ -53,6 +138,145 @@ if ('serviceWorker' in navigator) {
 window.addEventListener('appinstalled', () => {
   if (typeof showToast === 'function') showToast('✓ FitPlan installé !');
 });
+
+// ═══ Mode focus (séance plein écran) ═════════════════
+let _focusExIdx = 0, _focusSetIdx = 0;
+
+function enterFocusMode() {
+  if (typeof activeSession === 'undefined' || !activeSession || !activeSession.exercices?.length) {
+    if (typeof showToast === 'function') showToast('⚠️ Aucune séance active');
+    return;
+  }
+  _focusExIdx = 0;
+  _focusSetIdx = 0;
+  const overlay = document.getElementById('focus-overlay');
+  overlay.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  renderFocusMode();
+}
+function exitFocusMode() {
+  document.getElementById('focus-overlay').classList.add('hidden');
+  document.body.style.overflow = '';
+  if (typeof renderActiveSession === 'function') renderActiveSession();
+}
+
+function renderFocusMode() {
+  const ex = activeSession?.exercices?.[_focusExIdx];
+  const wrap = document.getElementById('focus-content');
+  if (!ex || !wrap) return exitFocusMode();
+
+  const isCardio = !ex.muscle;
+  const setCount = ex._setCount || 1;
+  const curLog   = activeSession.logs[_focusExIdx]?.[_focusSetIdx] || {};
+  const exCount  = activeSession.exercices.length;
+
+  const indicators = Array.from({ length: setCount }, (_, i) => {
+    const log = activeSession.logs[_focusExIdx]?.[i];
+    const done = isCardio ? log?.done : (log?.weight && log?.reps);
+    return `<span class="focus-set-dot ${i === _focusSetIdx ? 'current' : ''} ${done ? 'done' : ''}"></span>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div class="focus-topbar">
+      <button class="focus-icon-btn" onclick="exitFocusMode()" title="Quitter">✕</button>
+      <div class="focus-progress-text">Exo ${_focusExIdx + 1} / ${exCount}</div>
+      <button class="focus-icon-btn" onclick="startRestTimer(${getRestTime(ex)})" title="Démarrer le repos">⏱</button>
+    </div>
+
+    <div class="focus-exo">
+      <div class="focus-exo-name">${ex.nom}</div>
+      ${ex.muscle ? `<div class="focus-exo-muscle">${ex.muscle}</div>` : ''}
+      <div class="focus-exo-sets-info">${ex.sets || ''}</div>
+    </div>
+
+    ${isCardio ? `
+      <div class="focus-cardio">
+        <div class="focus-cardio-label">Effectué ?</div>
+        <label class="focus-cardio-toggle">
+          <input type="checkbox" ${curLog.done ? 'checked' : ''} onchange="focusLogCardio(this.checked)"/>
+          <span class="focus-cardio-slider"></span>
+        </label>
+      </div>
+    ` : `
+      <div class="focus-set-bar">
+        <span>Série</span>
+        <div class="focus-set-dots">${indicators}</div>
+        <span>${_focusSetIdx + 1} / ${setCount}</span>
+      </div>
+      <div class="focus-inputs">
+        <div class="focus-input-box">
+          <input type="number" inputmode="decimal" step="0.5" min="0" id="focus-weight" value="${curLog.weight ?? ''}" placeholder="0" onchange="focusUpdate('weight', this.value)"/>
+          <div class="focus-input-label">kg</div>
+        </div>
+        <div class="focus-x">×</div>
+        <div class="focus-input-box">
+          <input type="number" inputmode="numeric" min="1" id="focus-reps" value="${curLog.reps ?? ''}" placeholder="0" onchange="focusUpdate('reps', this.value)"/>
+          <div class="focus-input-label">reps</div>
+        </div>
+      </div>
+      <button class="focus-validate" onclick="focusValidateSet()">✓ Série validée → repos</button>
+    `}
+
+    <div class="focus-navbar">
+      <button class="focus-nav-btn" onclick="focusPrevExo()" ${_focusExIdx === 0 ? 'disabled' : ''}>← Préc.</button>
+      <button class="focus-nav-btn focus-finish" onclick="focusFinish()">Terminer</button>
+      <button class="focus-nav-btn" onclick="focusNextExo()" ${_focusExIdx === exCount - 1 ? 'disabled' : ''}>Suiv. →</button>
+    </div>`;
+}
+
+function focusUpdate(field, value) {
+  if (typeof logSet !== 'function') return;
+  logSet(_focusExIdx, _focusSetIdx, field, value);
+}
+function focusLogCardio(done) {
+  if (typeof logCardio !== 'function') return;
+  logCardio(_focusExIdx, done);
+  renderFocusMode();
+}
+function focusValidateSet() {
+  const ex = activeSession.exercices[_focusExIdx];
+  const log = activeSession.logs[_focusExIdx]?.[_focusSetIdx];
+  if (!log?.weight || !log?.reps) {
+    showToast('⚠️ Renseigne le poids et les reps avant de valider');
+    return;
+  }
+  // Démarre le repos automatique
+  startRestTimer(getRestTime(ex));
+  // Passe à la série suivante (ou exo suivant)
+  if (_focusSetIdx + 1 < (ex._setCount || 1)) {
+    _focusSetIdx++;
+  } else if (_focusExIdx + 1 < activeSession.exercices.length) {
+    _focusExIdx++;
+    _focusSetIdx = 0;
+  } else {
+    // Fin de la séance
+    showToast('💪 Toutes les séries faites !');
+    if (typeof showToast === 'function') {
+      setTimeout(() => {
+        if (confirm('Toutes les séries faites ! Enregistrer la séance ?')) {
+          exitFocusMode();
+          if (typeof saveSession === 'function') saveSession();
+        }
+      }, 200);
+    }
+    return;
+  }
+  renderFocusMode();
+}
+function focusNextExo() {
+  if (_focusExIdx < activeSession.exercices.length - 1) {
+    _focusExIdx++; _focusSetIdx = 0; renderFocusMode();
+  }
+}
+function focusPrevExo() {
+  if (_focusExIdx > 0) { _focusExIdx--; _focusSetIdx = 0; renderFocusMode(); }
+}
+function focusFinish() {
+  if (confirm('Terminer la séance et l\'enregistrer ?')) {
+    exitFocusMode();
+    if (typeof saveSession === 'function') saveSession();
+  }
+}
 
 // ═══ Rest timer ═════════════════════════════════════
 let _restTimer = { interval: null, remaining: 0, total: 0, paused: false };
@@ -293,6 +517,143 @@ function renderVolumeByMuscle() {
   }).join('');
 
   el.innerHTML = rows + `<p class="vol-legend">Recommandation scientifique : 10–20 séries/sem pour les gros groupes, 6–14 pour les petits. Une série compte si poids + reps renseignés.</p>`;
+}
+
+// ═══ Heat map muscles travaillés ═════════════════════
+function _heatColor(group, setsByGroup) {
+  const info = MG_INFO[group];
+  if (!info) return '#3a4256';
+  const s = setsByGroup[group] || 0;
+  if (s === 0) return '#3a4256';                   // gris
+  const pct = s / info.max;
+  if (pct < 0.5)  return '#dc2626';                // rouge : sous-volume
+  if (pct < 1)    return '#f59e0b';                // amber : sous l'optimum
+  if (pct <= 1.2) return '#16a34a';                // vert : optimum
+  return '#3b82f6';                                 // bleu : sur-volume
+}
+
+function renderHeatmap() {
+  const el = document.getElementById('profile-heatmap');
+  if (!el) return;
+
+  const sessions = (typeof _allHistorySessions !== 'undefined') ? _allHistorySessions : [];
+  const sevenDaysAgo = Date.now() - 7 * 24 * 3600 * 1000;
+  const setsByGroup = {};
+  for (const sess of sessions) {
+    if (new Date(sess.created_at).getTime() < sevenDaysAgo) continue;
+    for (const log of sess.exercise_logs || []) {
+      const g = exerciseToMuscleGroup(log.exercise_name);
+      if (!g) continue;
+      const v = (log.sets || []).filter(s => s?.weight && s?.reps).length;
+      setsByGroup[g] = (setsByGroup[g] || 0) + v;
+    }
+  }
+
+  const c = (g) => _heatColor(g, setsByGroup);
+  const sets = (g) => setsByGroup[g] || 0;
+  const stroke = '#1a1f2e';
+
+  const frontSVG = `
+    <svg viewBox="0 0 220 480" class="heatmap-body" aria-label="Vue de face">
+      <!-- Tête -->
+      <ellipse cx="110" cy="32" rx="24" ry="28" fill="#3a4256" stroke="${stroke}" stroke-width="1.5"/>
+      <!-- Cou -->
+      <rect x="98" y="58" width="24" height="12" fill="#3a4256"/>
+      <!-- Trapèzes (partie haute épaules) -->
+      <path d="M 65,72 Q 90,62 110,68 Q 130,62 155,72 L 150,82 Q 110,76 70,82 Z" fill="${c('dos')}" stroke="${stroke}" stroke-width="1.2"/>
+      <!-- Épaules / deltoïdes ant. -->
+      <ellipse cx="62" cy="92" rx="18" ry="22" fill="${c('epaules')}" stroke="${stroke}" stroke-width="1.2"/>
+      <ellipse cx="158" cy="92" rx="18" ry="22" fill="${c('epaules')}" stroke="${stroke}" stroke-width="1.2"/>
+      <!-- Pectoraux -->
+      <path d="M 82,85 L 138,85 Q 148,118 138,148 L 110,150 L 82,148 Q 72,118 82,85 Z" fill="${c('pec')}" stroke="${stroke}" stroke-width="1.5"/>
+      <line x1="110" y1="88" x2="110" y2="148" stroke="${stroke}" stroke-width="2" opacity="0.6"/>
+      <!-- Biceps -->
+      <ellipse cx="48" cy="135" rx="14" ry="34" fill="${c('biceps')}" stroke="${stroke}" stroke-width="1.2"/>
+      <ellipse cx="172" cy="135" rx="14" ry="34" fill="${c('biceps')}" stroke="${stroke}" stroke-width="1.2"/>
+      <!-- Avant-bras (non tracké) -->
+      <ellipse cx="42" cy="200" rx="11" ry="30" fill="#3a4256" stroke="${stroke}" stroke-width="1.2"/>
+      <ellipse cx="178" cy="200" rx="11" ry="30" fill="#3a4256" stroke="${stroke}" stroke-width="1.2"/>
+      <!-- Abdos -->
+      <rect x="87" y="155" width="46" height="80" rx="8" fill="${c('abdo')}" stroke="${stroke}" stroke-width="1.5"/>
+      <line x1="110" y1="155" x2="110" y2="235" stroke="${stroke}" stroke-width="1.5" opacity="0.6"/>
+      <line x1="87" y1="183" x2="133" y2="183" stroke="${stroke}" stroke-width="1" opacity="0.6"/>
+      <line x1="87" y1="208" x2="133" y2="208" stroke="${stroke}" stroke-width="1" opacity="0.6"/>
+      <!-- Bassin -->
+      <path d="M 78,245 L 142,245 L 138,265 L 82,265 Z" fill="#3a4256" stroke="${stroke}" stroke-width="1.2"/>
+      <!-- Quadriceps -->
+      <path d="M 82,270 L 109,270 L 105,380 L 82,380 Z" fill="${c('jambesQ')}" stroke="${stroke}" stroke-width="1.5"/>
+      <path d="M 111,270 L 138,270 L 138,380 L 115,380 Z" fill="${c('jambesQ')}" stroke="${stroke}" stroke-width="1.5"/>
+      <!-- Genoux -->
+      <ellipse cx="94" cy="388" rx="14" ry="8" fill="#3a4256" stroke="${stroke}" stroke-width="1"/>
+      <ellipse cx="126" cy="388" rx="14" ry="8" fill="#3a4256" stroke="${stroke}" stroke-width="1"/>
+      <!-- Tibias (mollets de face = tibialis, on les groupe avec jambesQ visuellement) -->
+      <path d="M 85,398 L 105,398 L 102,468 L 87,468 Z" fill="${c('jambesQ')}" opacity="0.75" stroke="${stroke}" stroke-width="1.2"/>
+      <path d="M 115,398 L 135,398 L 133,468 L 118,468 Z" fill="${c('jambesQ')}" opacity="0.75" stroke="${stroke}" stroke-width="1.2"/>
+      <text x="110" y="478" text-anchor="middle" font-size="11" fill="#9ca3af" font-weight="700">FACE</text>
+    </svg>`;
+
+  const backSVG = `
+    <svg viewBox="0 0 220 480" class="heatmap-body" aria-label="Vue de dos">
+      <!-- Tête -->
+      <ellipse cx="110" cy="32" rx="24" ry="28" fill="#3a4256" stroke="${stroke}" stroke-width="1.5"/>
+      <!-- Cou -->
+      <rect x="98" y="58" width="24" height="12" fill="#3a4256"/>
+      <!-- Trapèzes -->
+      <path d="M 65,72 Q 90,62 110,68 Q 130,62 155,72 L 145,105 Q 110,100 75,105 Z" fill="${c('dos')}" stroke="${stroke}" stroke-width="1.5"/>
+      <!-- Deltoïdes post. -->
+      <ellipse cx="60" cy="100" rx="16" ry="20" fill="${c('epaules')}" stroke="${stroke}" stroke-width="1.2"/>
+      <ellipse cx="160" cy="100" rx="16" ry="20" fill="${c('epaules')}" stroke="${stroke}" stroke-width="1.2"/>
+      <!-- Grand dorsal / dos -->
+      <path d="M 75,105 L 145,105 L 142,180 Q 110,185 78,180 Z" fill="${c('dos')}" stroke="${stroke}" stroke-width="1.5"/>
+      <line x1="110" y1="108" x2="110" y2="180" stroke="${stroke}" stroke-width="1" opacity="0.4"/>
+      <!-- Triceps -->
+      <ellipse cx="48" cy="135" rx="14" ry="34" fill="${c('triceps')}" stroke="${stroke}" stroke-width="1.2"/>
+      <ellipse cx="172" cy="135" rx="14" ry="34" fill="${c('triceps')}" stroke="${stroke}" stroke-width="1.2"/>
+      <!-- Avant-bras -->
+      <ellipse cx="42" cy="200" rx="11" ry="30" fill="#3a4256" stroke="${stroke}" stroke-width="1.2"/>
+      <ellipse cx="178" cy="200" rx="11" ry="30" fill="#3a4256" stroke="${stroke}" stroke-width="1.2"/>
+      <!-- Bas du dos -->
+      <path d="M 85,185 L 135,185 L 132,235 L 88,235 Z" fill="${c('dos')}" opacity="0.7" stroke="${stroke}" stroke-width="1.2"/>
+      <!-- Fessiers -->
+      <path d="M 78,238 L 142,238 L 138,290 Q 110,295 82,290 Z" fill="${c('jambesI')}" stroke="${stroke}" stroke-width="1.5"/>
+      <line x1="110" y1="240" x2="110" y2="290" stroke="${stroke}" stroke-width="1.5" opacity="0.5"/>
+      <!-- Ischio-jambiers -->
+      <path d="M 82,295 L 109,295 L 105,380 L 82,380 Z" fill="${c('jambesI')}" stroke="${stroke}" stroke-width="1.5"/>
+      <path d="M 111,295 L 138,295 L 138,380 L 115,380 Z" fill="${c('jambesI')}" stroke="${stroke}" stroke-width="1.5"/>
+      <!-- Genoux -->
+      <ellipse cx="94" cy="388" rx="14" ry="8" fill="#3a4256" stroke="${stroke}" stroke-width="1"/>
+      <ellipse cx="126" cy="388" rx="14" ry="8" fill="#3a4256" stroke="${stroke}" stroke-width="1"/>
+      <!-- Mollets -->
+      <ellipse cx="93" cy="430" rx="13" ry="38" fill="${c('jambesI')}" opacity="0.85" stroke="${stroke}" stroke-width="1.2"/>
+      <ellipse cx="127" cy="430" rx="13" ry="38" fill="${c('jambesI')}" opacity="0.85" stroke="${stroke}" stroke-width="1.2"/>
+      <text x="110" y="478" text-anchor="middle" font-size="11" fill="#9ca3af" font-weight="700">DOS</text>
+    </svg>`;
+
+  // Légende des couleurs
+  const legendHtml = `
+    <div class="heat-legend">
+      <span class="heat-leg"><span class="heat-dot" style="background:#3a4256"></span>Non travaillé</span>
+      <span class="heat-leg"><span class="heat-dot" style="background:#dc2626"></span>Insuffisant</span>
+      <span class="heat-leg"><span class="heat-dot" style="background:#f59e0b"></span>Sous optimum</span>
+      <span class="heat-leg"><span class="heat-dot" style="background:#16a34a"></span>Optimal</span>
+      <span class="heat-leg"><span class="heat-dot" style="background:#3b82f6"></span>Sur-volume</span>
+    </div>`;
+
+  // Stats récap
+  const statsLines = Object.entries(MG_INFO).map(([key, info]) => {
+    const s = sets(key);
+    const status = s === 0 ? '—' : s < info.min ? '↓' : s <= info.max ? '✓' : '↑';
+    return `<span class="heat-stat"><b>${info.label}</b> ${s} ${status}</span>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="heatmap-views">
+      <div class="heatmap-view">${frontSVG}</div>
+      <div class="heatmap-view">${backSVG}</div>
+    </div>
+    ${legendHtml}
+    <div class="heat-stats">${statsLines}</div>
+    <p class="heat-note">Volume des 7 derniers jours · Cible : 10–20 séries/sem (gros groupes), 6–14 (petits).</p>`;
 }
 
 // ═══ Badges / Accomplissements ═══════════════════════
@@ -1598,6 +1959,8 @@ document.addEventListener('keydown', e => {
     closeCreateExModal();
     closeEditPRModal();
     closeBodyWeightModal();
+    if (!document.getElementById('focus-overlay')?.classList.contains('hidden')) exitFocusMode();
+    if (document.getElementById('tutorial-overlay')) endTutorial();
   }
 });
 
