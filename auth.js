@@ -18,46 +18,41 @@ if (location.hash === '#dashboard' || location.hash === '#profile') {
   document.getElementById('view-onboarding')?.classList.add('hidden');
 }
 
-// Initialisation explicite via getSession() (lit le localStorage + rafraîchit
-// le JWT si expiré) — plus fiable que onAuthStateChange seul.
-(async function init() {
-  try {
-    const { data: { session } } = await sb.auth.getSession();
-    currentUser = session?.user ?? null;
-  } catch (e) {
-    currentUser = null;
-  }
-
-  renderAuthHeader();
-
-  if (currentUser) {
-    await loadProfile();
-  } else {
-    showView('onboarding');
-  }
-})();
-
-// ── Auth state (événements dynamiques uniquement) ─
+// ── Auth state ────────────────────────────────────
+// Gère tous les événements qui portent une session valide.
+// _profileLoadRunning évite les doubles appels si plusieurs événements
+// (INITIAL_SESSION + SIGNED_IN, ou init() + TOKEN_REFRESHED) arrivent ensemble.
 sb.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_OUT') {
     _expectSignedOut = false;
     return;
   }
 
-  // SIGNED_IN = connexion en direct (pas au refresh — géré par init())
-  if (event === 'SIGNED_IN') {
+  if (session?.user && !state.objectif && !_profileLoadRunning) {
     currentUser = session.user;
     renderAuthHeader();
-    if (!state.objectif && !_profileLoadRunning) {
-      await loadProfile();
-    }
-  }
-
-  // TOKEN_REFRESHED = simple renouvellement du JWT, pas besoin de recharger
-  if (event === 'TOKEN_REFRESHED' && session?.user) {
-    currentUser = session.user;
+    await loadProfile();
   }
 });
+
+// Fallback : getSession() force le rafraîchissement JWT si expiré et déclenche
+// loadProfile() si onAuthStateChange n'a pas encore répondu.
+(async function init() {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session?.user && !state.objectif && !_profileLoadRunning) {
+      currentUser = session.user;
+      renderAuthHeader();
+      await loadProfile();
+    } else if (!session?.user && !state.objectif) {
+      renderAuthHeader();
+      showView('onboarding');
+    }
+  } catch (e) {
+    renderAuthHeader();
+    showView('onboarding');
+  }
+})();
 
 // ── Reset UI state ────────────────────────────────
 function resetState() {
