@@ -906,67 +906,140 @@ const MUSCLE_GROUPS = {
   cardio:'Cardio',
 };
 
+let _swapExSearchQuery   = '';
+let _swapExExpandedGroup = null; // accordéon : un seul groupe ouvert à la fois (sauf si recherche active)
+
 function openSwapEx(exName) {
   _swapExTarget = exName;
-  const list = document.getElementById('swap-ex-list');
-  const isPicker = _exPickerCallback != null;
-  const current = isPicker ? null : state.exerciseSwaps[exName];
-  const currentNom = current?.nom ?? exName;
+  _swapExSearchQuery   = '';
+  _swapExExpandedGroup = null;
 
-  // Adapter le titre et la ligne contextuelle selon le mode
+  const isPicker = _exPickerCallback != null;
+  const current  = isPicker ? null : state.exerciseSwaps[exName];
+
   const titleEl = document.querySelector('#swap-ex-modal .modal-title');
   if (titleEl) titleEl.textContent = isPicker ? 'Choisir un exercice' : 'Remplacer l\'exercice';
   document.getElementById('swap-ex-current').textContent = isPicker
     ? 'Sélectionne un exercice à ajouter'
     : (current ? `Actuel : ${current.nom}  ·  Original : ${exName}` : `Original : ${exName}`);
 
-  // Bouton "créer mon propre exercice" en haut
+  const resetBtn = document.getElementById('swap-ex-reset-btn');
+  if (resetBtn) resetBtn.style.display = isPicker ? 'none' : '';
+
+  document.getElementById('swap-ex-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  renderSwapExList();
+}
+
+function _highlightMatch(text, query) {
+  if (!query) return text;
+  const q = query.trim().toLowerCase();
+  const i = text.toLowerCase().indexOf(q);
+  if (i === -1) return text;
+  return text.slice(0, i) + `<mark>${text.slice(i, i + q.length)}</mark>` + text.slice(i + q.length);
+}
+
+function renderSwapExList() {
+  const list = document.getElementById('swap-ex-list');
+  if (!list) return;
+
+  const isPicker   = _exPickerCallback != null;
+  const current    = isPicker ? null : state.exerciseSwaps[_swapExTarget];
+  const currentNom = current?.nom ?? _swapExTarget;
+  const q          = _swapExSearchQuery.trim().toLowerCase();
+
+  // Bouton créer
   const createBtn = `
     <button class="swap-create-btn" onclick="openCreateExModal()">
       <span style="font-size:18px">＋</span>
       <span>Créer mon propre exercice</span>
     </button>`;
 
-  // Groupe "Mes exercices" si l'utilisateur en a créés
-  const customHtml = state.customExercises.length ? `
+  // Barre de recherche
+  const searchBar = `
+    <div class="swap-search-wrap">
+      <span class="swap-search-icon">🔍</span>
+      <input type="text" class="swap-search-input" id="swap-search-input" placeholder="Rechercher un exercice..." value="${_swapExSearchQuery.replace(/"/g, '&quot;')}" oninput="onSwapSearch(this.value)" autocomplete="off"/>
+      ${q ? `<button class="swap-search-clear" onclick="onSwapSearch('')" title="Effacer">✕</button>` : ''}
+    </div>`;
+
+  const matches = (ex) => !q || ex.nom.toLowerCase().includes(q) || (ex.muscle || '').toLowerCase().includes(q);
+
+  // ─ Mes exercices (custom)
+  const customMatching = state.customExercises.filter(matches);
+  const customOpen = q ? customMatching.length > 0 : _swapExExpandedGroup === 'custom';
+  const customHtml = state.customExercises.length > 0 && (!q || customMatching.length > 0) ? `
     <div class="swap-group">
-      <div class="swap-group-title">✏️ Mes exercices</div>
-      ${state.customExercises.map((ex, idx) => {
-        const active = ex.nom === currentNom;
-        const safe   = ex.nom.replace(/'/g, "\\'");
-        return `
-          <div class="swap-option-row">
-            <button class="swap-option${active ? ' active' : ''}" style="flex:1" onclick="applyCustomExSwap(${idx})">
-              <span class="swap-option-name">${ex.nom}</span>
-              <span class="swap-option-meta">${ex.sets}</span>
-            </button>
-            <button class="swap-custom-delete" onclick="deleteCustomExercise(${idx})" title="Supprimer">✕</button>
-          </div>`;
-      }).join('')}
+      <button class="swap-group-header" onclick="toggleSwapGroup('custom')">
+        <span>✏️ Mes exercices <span class="swap-group-count">${customMatching.length}</span></span>
+        <span class="swap-group-arrow ${customOpen ? 'open' : ''}">▾</span>
+      </button>
+      ${customOpen ? `<div class="swap-group-body">
+        ${customMatching.map(ex => {
+          const idx = state.customExercises.indexOf(ex);
+          const active = ex.nom === currentNom;
+          return `
+            <div class="swap-option-row">
+              <button class="swap-option${active ? ' active' : ''}" style="flex:1" onclick="applyCustomExSwap(${idx})">
+                <span class="swap-option-name">${_highlightMatch(ex.nom, q)}</span>
+                <span class="swap-option-meta">${ex.sets}</span>
+              </button>
+              <button class="swap-custom-delete" onclick="deleteCustomExercise(${idx})" title="Supprimer">✕</button>
+            </div>`;
+        }).join('')}
+      </div>` : ''}
     </div>` : '';
 
-  // Groupes standards
-  const stdHtml = Object.entries(EX).map(([key, exs]) => `
-    <div class="swap-group">
-      <div class="swap-group-title">${MUSCLE_GROUPS[key] ?? key}</div>
-      ${exs.map(ex => {
-        const active = ex.nom === currentNom;
-        const safe   = ex.nom.replace(/'/g, "\\'");
-        return `
-          <button class="swap-option${active ? ' active' : ''}" onclick="applyExSwap('${safe}','${key}')">
-            <span class="swap-option-name">${ex.nom}</span>
-            <span class="swap-option-meta">${ex.sets}</span>
-          </button>`;
-      }).join('')}
-    </div>`).join('');
+  // ─ Groupes standards
+  const stdHtml = Object.entries(EX).map(([key, exs]) => {
+    const filtered = exs.filter(matches);
+    if (q && filtered.length === 0) return '';
+    const isOpen = q ? true : _swapExExpandedGroup === key;
+    return `
+      <div class="swap-group">
+        <button class="swap-group-header" onclick="toggleSwapGroup('${key}')">
+          <span>${MUSCLE_GROUPS[key] ?? key} <span class="swap-group-count">${filtered.length}</span></span>
+          <span class="swap-group-arrow ${isOpen ? 'open' : ''}">▾</span>
+        </button>
+        ${isOpen ? `<div class="swap-group-body">
+          ${filtered.map(ex => {
+            const active = ex.nom === currentNom;
+            const safe   = ex.nom.replace(/'/g, "\\'");
+            return `
+              <button class="swap-option${active ? ' active' : ''}" onclick="applyExSwap('${safe}','${key}')">
+                <span class="swap-option-name">${_highlightMatch(ex.nom, q)}</span>
+                <span class="swap-option-meta">${ex.sets}</span>
+              </button>`;
+          }).join('')}
+        </div>` : ''}
+      </div>`;
+  }).filter(Boolean).join('');
 
-  list.innerHTML = createBtn + customHtml + stdHtml;
+  // ─ Aucun résultat
+  const noResults = q && !customMatching.length && !stdHtml ? `
+    <p style="text-align:center;padding:24px 0;color:#9ca3af;font-size:13px">Aucun exercice trouvé pour "${q}"</p>` : '';
 
-  const resetBtn = document.getElementById('swap-ex-reset-btn');
-  if (resetBtn) resetBtn.style.display = isPicker ? 'none' : '';
+  list.innerHTML = createBtn + searchBar + customHtml + stdHtml + noResults;
 
-  document.getElementById('swap-ex-modal').classList.remove('hidden');
-  document.body.style.overflow = 'hidden';
+  // Restaure le focus + position du curseur dans le champ recherche
+  if (q || document.activeElement?.id === 'swap-search-input') {
+    const input = document.getElementById('swap-search-input');
+    if (input) {
+      input.focus();
+      const len = input.value.length;
+      input.setSelectionRange(len, len);
+    }
+  }
+}
+
+function toggleSwapGroup(key) {
+  _swapExExpandedGroup = _swapExExpandedGroup === key ? null : key;
+  renderSwapExList();
+}
+
+function onSwapSearch(value) {
+  _swapExSearchQuery = value;
+  renderSwapExList();
 }
 function applyExSwap(newName, group) {
   const newEx = EX[group]?.find(e => e.nom === newName);
@@ -1153,14 +1226,22 @@ function renderProgrammeEditor() {
 
 function editorSetType(i, type) {
   if (!_editorProgramme) return;
+  const prevType = _editorProgramme[i].type;
   _editorProgramme[i].type = type;
+
   if (type === 'rest') {
     _editorProgramme[i].label = 'Repos';
     _editorProgramme[i].exercices = [];
-  } else if (type === 'cardio' && !_editorProgramme[i].exercices.length) {
-    _editorProgramme[i].label = _editorProgramme[i].label || 'Cardio';
-  } else if (type === 'training' && _editorProgramme[i].label === 'Repos') {
-    _editorProgramme[i].label = 'Séance';
+  } else if (type === 'cardio') {
+    // Bascule vers Cardio → on vide les exos (l'utilisateur ajoute ceux qu'il veut)
+    if (prevType !== 'cardio') _editorProgramme[i].exercices = [];
+    if (!_editorProgramme[i].label || _editorProgramme[i].label === 'Repos' || _editorProgramme[i].label === 'Séance') {
+      _editorProgramme[i].label = 'Cardio';
+    }
+  } else if (type === 'training') {
+    if (_editorProgramme[i].label === 'Repos' || _editorProgramme[i].label === 'Cardio') {
+      _editorProgramme[i].label = 'Séance';
+    }
   }
   renderProgrammeEditor();
 }

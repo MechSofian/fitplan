@@ -861,10 +861,61 @@ select option { background: #1f2937; }
   width: 100%; padding: 12px;
   background: rgba(249,115,22,.08); border: 1.5px dashed rgba(249,115,22,.4);
   color: #fb923c; font-weight: 700; font-size: 13px; cursor: pointer;
-  border-radius: 10px; margin-bottom: 14px;
+  border-radius: 10px; margin-bottom: 10px;
   transition: all 0.2s;
 }
 .swap-create-btn:hover { background: rgba(249,115,22,.15); border-color: #f97316; }
+
+/* Barre de recherche dans le picker */
+.swap-search-wrap {
+  display: flex; align-items: center; gap: 6px;
+  background: #1f2937; border: 1px solid #374151; border-radius: 10px;
+  padding: 4px 10px; margin-bottom: 12px;
+  transition: border-color 0.2s;
+}
+.swap-search-wrap:focus-within { border-color: #f97316; }
+.swap-search-icon { font-size: 13px; opacity: 0.6; }
+.swap-search-input {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: white; padding: 9px 0; font-size: 14px; min-width: 0;
+}
+.swap-search-clear {
+  background: transparent; border: none; color: #6b7280;
+  cursor: pointer; padding: 4px 8px; border-radius: 6px;
+  font-size: 11px; transition: all 0.2s;
+}
+.swap-search-clear:hover { background: #374151; color: #d1d5db; }
+
+/* Accordéon des groupes */
+.swap-group-header {
+  display: flex; justify-content: space-between; align-items: center;
+  width: 100%; padding: 11px 14px;
+  background: #1f2937; border: 1px solid #374151; border-radius: 10px;
+  color: #d1d5db; font-weight: 700; font-size: 13px; cursor: pointer;
+  margin-bottom: 6px; transition: all 0.2s;
+}
+.swap-group-header:hover { background: #2a3344; border-color: #4b5563; }
+.swap-group-count {
+  display: inline-block; background: rgba(249,115,22,.18);
+  color: #fb923c; font-size: 11px; font-weight: 700;
+  padding: 1px 8px; border-radius: 10px; margin-left: 6px;
+}
+.swap-group-arrow { font-size: 14px; transition: transform 0.2s; color: #9ca3af; }
+.swap-group-arrow.open { transform: rotate(180deg); color: #f97316; }
+.swap-group-body { padding: 4px 0 4px 6px; margin-bottom: 8px; }
+
+/* Surlignage du match de recherche */
+mark {
+  background: rgba(249,115,22,.3); color: #fb923c;
+  padding: 0 3px; border-radius: 3px; font-weight: 700;
+}
+
+/* Light theme overrides */
+body.theme-light .swap-search-wrap { background: #f3f4f6; border-color: #d1d5db; }
+body.theme-light .swap-search-input { color: #111827; }
+body.theme-light .swap-group-header { background: #f3f4f6; border-color: #d1d5db; color: #1f2937; }
+body.theme-light .swap-group-header:hover { background: #e5e7eb; border-color: #9ca3af; }
+body.theme-light mark { background: #fef3c7; color: #b45309; }
 
 .swap-day-option {
   display: flex; justify-content: space-between; align-items: center; gap: 10px;
