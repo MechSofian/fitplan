@@ -6,9 +6,10 @@ const SUPABASE_URL  = 'https://gllhxhcxvrfxnomsylve.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsbGh4aGN4dnJmeG5vbXN5bHZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2OTUyNjcsImV4cCI6MjA5NDI3MTI2N30.YcF4TvYU3SI-MStMvpwSvy-I1Nhi3TIKz_yQ60i7ECw';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-let currentUser      = null;
-let activeSession    = null;
-let _expectSignedOut = false;
+let currentUser          = null;
+let activeSession        = null;
+let _expectSignedOut     = false;
+let _profileLoadRunning  = false; // évite les doubles appels loadProfile()
 
 // Afficher onboarding immédiatement si aucune session en localStorage
 // (évite le spinner inutile quand l'utilisateur n'est pas connecté)
@@ -40,7 +41,9 @@ sb.auth.onAuthStateChange(async (event, session) => {
       showView('onboarding');
     }
   } else if (event === 'SIGNED_IN') {
-    await loadProfile();
+    // Supabase fire SIGNED_IN à la fois sur login ET sur restauration de session
+    // au refresh — on ignore si loadProfile() est déjà en cours ou terminé
+    if (!_profileLoadRunning) await loadProfile();
   }
   // TOKEN_REFRESHED / USER_UPDATED : pas de re-routing
 });
@@ -158,7 +161,8 @@ async function signUp() {
 }
 
 function signOut() {
-  _expectSignedOut = true;
+  _expectSignedOut    = true;
+  _profileLoadRunning = false;
   currentUser = null;
   renderAuthHeader();
   resetState();
@@ -181,7 +185,8 @@ function signOut() {
 
 // ── Profile persistence ───────────────────────────
 async function loadProfile() {
-  if (!currentUser) return;
+  if (!currentUser || _profileLoadRunning) return;
+  _profileLoadRunning = true;
 
   showView('loading');
 
@@ -239,6 +244,8 @@ async function loadProfile() {
     showToast('⚠️ Impossible de charger le profil. Vérifie ta connexion.');
     goToOnboardingStep(1);
     showView('onboarding');
+  } finally {
+    _profileLoadRunning = false;
   }
 }
 
