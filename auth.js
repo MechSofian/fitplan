@@ -11,16 +11,6 @@ let activeSession        = null;
 let _expectSignedOut     = false;
 let _profileLoadRunning  = false; // évite les doubles appels loadProfile()
 
-// Afficher onboarding immédiatement si aucune session en localStorage
-// (évite le spinner inutile quand l'utilisateur n'est pas connecté)
-;(function() {
-  const hasSession = Object.keys(localStorage).some(k => k.startsWith('sb-'));
-  if (!hasSession) {
-    document.getElementById('view-loading')?.classList.add('hidden');
-    document.getElementById('view-onboarding')?.classList.remove('hidden');
-  }
-})();
-
 // ── Auth state ────────────────────────────────────
 sb.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_OUT') {
@@ -187,8 +177,6 @@ function signOut() {
 async function loadProfile() {
   if (!currentUser || _profileLoadRunning) return;
   _profileLoadRunning = true;
-
-  showView('loading');
 
   try {
     const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
