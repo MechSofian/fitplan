@@ -13,10 +13,11 @@ let _profileLoadRunning  = false;
 let _initialSessionSeen  = false; // Supabase v2 émet un SIGNED_IN bidon au refresh AVANT INITIAL_SESSION — on l'ignore
 
 // ── Démarrage ─────────────────────────────────────
-// Cache l'onboarding immédiatement si le hash indique que l'utilisateur
-// était connecté, pour éviter le flash pendant l'appel réseau.
+// Si le hash indique que l'utilisateur était connecté, on affiche le spinner
+// pendant que Supabase rafraîchit le JWT et qu'on charge le profil.
 if (location.hash === '#dashboard' || location.hash === '#profile') {
   document.getElementById('view-onboarding')?.classList.add('hidden');
+  document.getElementById('view-loading')?.classList.remove('hidden');
 }
 
 // ── Auth state ────────────────────────────────────
@@ -24,8 +25,6 @@ if (location.hash === '#dashboard' || location.hash === '#profile') {
 // _profileLoadRunning évite les doubles appels si plusieurs événements
 // (INITIAL_SESSION + SIGNED_IN, ou init() + TOKEN_REFRESHED) arrivent ensemble.
 sb.auth.onAuthStateChange(async (event, session) => {
-  console.log('[FitPlan] onAuthStateChange:', event, 'session?', !!session?.user, '_initialSessionSeen?', _initialSessionSeen);
-
   if (event === 'SIGNED_OUT') {
     _expectSignedOut = false;
     return;
@@ -35,7 +34,6 @@ sb.auth.onAuthStateChange(async (event, session) => {
   // mais le JWT n'est pas encore prêt → la requête hang. On l'ignore et
   // on attend INITIAL_SESSION qui fire juste après avec un état stable.
   if (event === 'SIGNED_IN' && !_initialSessionSeen) {
-    console.log('[FitPlan] SIGNED_IN ignoré (avant INITIAL_SESSION)');
     return;
   }
 
@@ -56,10 +54,8 @@ sb.auth.onAuthStateChange(async (event, session) => {
 // Fallback : getSession() force le rafraîchissement JWT si expiré et déclenche
 // loadProfile() si onAuthStateChange n'a pas encore répondu.
 (async function init() {
-  console.log('[FitPlan] init() START');
   try {
     const { data: { session } } = await sb.auth.getSession();
-    console.log('[FitPlan] init() getSession result:', !!session?.user);
     _initialSessionSeen = true; // après init(), tout SIGNED_IN est légitime
     if (session?.user && !state.objectif && !_profileLoadRunning) {
       currentUser = session.user;
@@ -70,7 +66,6 @@ sb.auth.onAuthStateChange(async (event, session) => {
       showView('onboarding');
     }
   } catch (e) {
-    console.error('[FitPlan] init() error:', e);
     _initialSessionSeen = true;
     renderAuthHeader();
     showView('onboarding');
@@ -216,16 +211,9 @@ function signOut() {
 async function loadProfile() {
   if (!currentUser || _profileLoadRunning) return;
   _profileLoadRunning = true;
-  console.log('[FitPlan] loadProfile START for user', currentUser.id);
 
   try {
-    // Timeout de 8s pour éviter le freeze si la requête hang
-    const queryPromise = sb.from('profiles').select('*').eq('id', currentUser.id).single();
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout: profil non chargé après 8s')), 8000)
-    );
-    const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
-    console.log('[FitPlan] loadProfile query result:', { data, error });
+    const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
 
     // PGRST116 = aucune ligne (premier passage) → onboarding normal
     if (error && error.code === 'PGRST116') {
