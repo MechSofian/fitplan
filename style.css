@@ -1008,8 +1008,31 @@ select option { background: #1f2937; }
    =================================================== */
 body.theme-light {
   background: #f9fafb !important;
-  color: #111827 !important;
+  color: #1f2937 !important;
 }
+/* Texte par défaut : tout ce qui hérite du body devient sombre */
+body.theme-light, body.theme-light * { color: inherit; }
+/* Overrides des classes Tailwind qui imposent une couleur claire */
+body.theme-light.text-gray-100,
+body.theme-light .text-gray-100,
+body.theme-light .text-white { color: #111827 !important; }
+body.theme-light .text-gray-400 { color: #4b5563 !important; }
+body.theme-light .text-gray-500 { color: #6b7280 !important; }
+body.theme-light .text-gray-600 { color: #9ca3af !important; }
+body.theme-light .text-orange-400 { color: #ea580c !important; }
+body.theme-light .text-red-400   { color: #dc2626 !important; }
+/* Inline styles agressifs (style="color:#XXX") — on les neutralise sur les grands écrans de texte */
+body.theme-light [style*="color:#9ca3af"],
+body.theme-light [style*="color: #9ca3af"] { color: #4b5563 !important; }
+body.theme-light [style*="color:#6b7280"],
+body.theme-light [style*="color: #6b7280"] { color: #6b7280 !important; }
+body.theme-light [style*="color:#4b5563"] { color: #6b7280 !important; }
+/* Backgrounds rgba foncés inline */
+body.theme-light [style*="background:rgba(249,115,22,0.06)"],
+body.theme-light [style*="background:rgba(249,115,22,0.08)"] { background: #fff7ed !important; }
+body.theme-light [style*="background:rgba(20,184,166,0.08)"] { background: #ccfbf1 !important; }
+body.theme-light [style*="background:#0d1117"] { background: #f3f4f6 !important; }
+body.theme-light [style*="background:rgba(249,115,22,0.2)"] { background: #fed7aa !important; }
 body.theme-light header { background: rgba(255,255,255,.9) !important; border-color: #e5e7eb !important; }
 body.theme-light .card,
 body.theme-light .modal-card,
