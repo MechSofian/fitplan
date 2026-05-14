@@ -17,7 +17,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=29" />
+  <link rel="stylesheet" href="style.css?v=30" />
   <script>
     tailwind.config = {
       theme: { extend: { colors: { brand: { 500: '#f97316', 600: '#ea580c' } } } }
@@ -405,7 +405,54 @@
 
   <footer class="text-center text-gray-600 text-sm py-8">
     FitPlan — Calculs basés sur la formule Mifflin-St Jeor &middot; Consulte un professionnel de santé avant de débuter.
+    <br/>
+    <button class="footer-link" onclick="openLegalModal()">Mentions légales & Confidentialité</button>
   </footer>
+
+  <!-- Mentions légales / Confidentialité -->
+  <div id="legal-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeLegalModal()"></div>
+    <div class="modal-card" style="max-width:600px">
+      <button class="modal-close" onclick="closeLegalModal()">✕</button>
+      <h3 class="modal-title">Mentions légales & Confidentialité</h3>
+      <div class="legal-content">
+        <h4>À propos de FitPlan</h4>
+        <p>FitPlan est un outil de suivi d'entraînement personnel développé à titre éducatif. Il n'est pas un service médical. Consulte un professionnel de santé avant de débuter un programme sportif.</p>
+
+        <h4>Données collectées</h4>
+        <p>Nous stockons uniquement les informations que tu fournis volontairement :</p>
+        <ul>
+          <li>Identifiants : email, prénom, nom</li>
+          <li>Profil sportif : genre, âge, taille, poids, niveau, objectif</li>
+          <li>Séances enregistrées : exercices, poids, répétitions, notes</li>
+          <li>Mesures de poids corporel (si saisies)</li>
+        </ul>
+        <p>Aucun pistage publicitaire. Aucune donnée vendue ni partagée avec des tiers.</p>
+
+        <h4>Hébergement</h4>
+        <p>Les données sont stockées sur <b>Supabase</b> (infrastructure cloud sécurisée, conforme RGPD). L'authentification utilise des mots de passe chiffrés et des JWTs.</p>
+
+        <h4>Tes droits</h4>
+        <p>Conformément au RGPD, tu peux à tout moment :</p>
+        <ul>
+          <li><b>Consulter</b> tes données depuis ton profil</li>
+          <li><b>Modifier</b> tes infos via ⚙️ Paramètres du compte</li>
+          <li><b>Supprimer définitivement</b> ton compte et toutes tes données via ⚙️ → "Supprimer mon compte"</li>
+        </ul>
+
+        <h4>Cookies & stockage local</h4>
+        <p>FitPlan utilise le <code>localStorage</code> du navigateur pour mémoriser ta session, ton thème et tes personnalisations (swaps d'exercices, exercices créés). Aucun cookie de pistage tiers.</p>
+
+        <h4>Avertissement santé</h4>
+        <p>Les calculs métaboliques (BMR, TDEE, calories cibles) sont basés sur la formule <b>Mifflin-St Jeor</b>, des estimations statistiques. Les suggestions de poids par exercice sont indicatives. <b>Adapte toujours en fonction de tes sensations et consulte un médecin ou un coach</b>.</p>
+
+        <h4>Contact</h4>
+        <p>Pour toute question relative aux données, contacte l'administrateur de l'application.</p>
+
+        <p style="text-align:center;color:#6b7280;font-size:12px;margin-top:24px">Dernière mise à jour : <span id="legal-year">2026</span></p>
+      </div>
+    </div>
+  </div>
 
   <!-- Toast -->
   <div id="toast" class="toast hidden"></div>
@@ -656,7 +703,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=29"></script>
-  <script src="auth.js?v=29"></script>
+  <script src="app.js?v=30"></script>
+  <script src="auth.js?v=30"></script>
 </body>
 </html>

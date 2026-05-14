@@ -164,19 +164,23 @@ function switchAuthTab(tab) {
       <div class="field-group"><label>Nom</label><div class="input-with-unit" style="margin-top:6px"><input type="text" id="auth-nom" placeholder="Dupont" style="padding:12px 16px"/></div></div>
     </div>
     <div class="field-group mb-4"><label>Email</label><div class="input-with-unit" style="margin-top:6px"><input type="email" id="auth-email" placeholder="toi@email.com" style="padding:12px 16px"/></div></div>
-    <div class="field-group mb-6"><label>Mot de passe <span style="color:#6b7280;font-weight:400">(min. 6 caractères)</span></label><div class="input-with-unit" style="margin-top:6px"><input type="password" id="auth-pwd" placeholder="••••••••" style="padding:12px 16px"/></div></div>
+    <div class="field-group mb-6"><label>Mot de passe <span style="color:#6b7280;font-weight:400">(min. 8 car. · 1 lettre · 1 chiffre)</span></label><div class="input-with-unit" style="margin-top:6px"><input type="password" id="auth-pwd" placeholder="••••••••" style="padding:12px 16px"/></div></div>
     <div id="auth-error" class="hidden mb-4 text-red-400 text-sm bg-red-900/30 px-4 py-2 rounded-lg"></div>
     <button class="btn-primary w-full" onclick="signUp()">Créer mon compte</button>
     <p class="text-center text-gray-500 text-sm mt-4">Déjà un compte ? <button class="text-orange-400 font-semibold" onclick="switchAuthTab('login')">Se connecter</button></p>
   `;
 }
 
-async function signIn() {
+async function signIn(btn) {
   const email = document.getElementById('auth-email').value.trim();
   const pwd   = document.getElementById('auth-pwd').value;
   const err   = document.getElementById('auth-error');
   err.classList.add('hidden');
 
+  if (!email || !pwd) { err.textContent = 'Email et mot de passe requis.'; err.classList.remove('hidden'); return; }
+
+  const button = btn || event?.currentTarget;
+  if (button) { button.disabled = true; button.dataset._txt = button.textContent; button.textContent = 'Connexion…'; }
   try {
     const { error } = await sb.auth.signInWithPassword({ email, password: pwd });
     if (error) throw error;
@@ -186,6 +190,8 @@ async function signIn() {
     console.error('[FitPlan] signIn:', e);
     err.textContent = e.message?.includes('Invalid login') ? 'Email ou mot de passe incorrect.' : `Erreur : ${e.message}`;
     err.classList.remove('hidden');
+  } finally {
+    if (button) { button.disabled = false; button.textContent = button.dataset._txt || 'Se connecter'; }
   }
 }
 
@@ -193,11 +199,9 @@ async function sendPasswordReset() {
   const email = document.getElementById('auth-email').value.trim();
   const err   = document.getElementById('auth-error');
   err.classList.add('hidden');
-  if (!email) {
-    err.textContent = 'Email requis.';
-    err.classList.remove('hidden');
-    return;
-  }
+  if (!_EMAIL_RE.test(email)) { err.textContent = 'Email invalide.'; err.classList.remove('hidden'); return; }
+  const btn = event?.currentTarget;
+  if (btn) { btn.disabled = true; btn.dataset._txt = btn.textContent; btn.textContent = 'Envoi…'; }
   try {
     const { error } = await sb.auth.resetPasswordForEmail(email, {
       redirectTo: window.location.origin + window.location.pathname + '#recovery',
@@ -209,6 +213,8 @@ async function sendPasswordReset() {
     console.error('[FitPlan] reset:', e);
     err.textContent = `Erreur : ${e.message}`;
     err.classList.remove('hidden');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = btn.dataset._txt || 'Envoyer le lien'; }
   }
 }
 
@@ -242,6 +248,15 @@ async function submitNewPassword() {
   }
 }
 
+// Helpers de validation
+const _EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+function _validatePassword(pwd) {
+  if (!pwd || pwd.length < 8)    return 'Mot de passe trop court (min. 8 caractères).';
+  if (!/[A-Za-z]/.test(pwd))     return 'Le mot de passe doit contenir au moins une lettre.';
+  if (!/[0-9]/.test(pwd))        return 'Le mot de passe doit contenir au moins un chiffre.';
+  return null;
+}
+
 async function signUp() {
   const prenom = document.getElementById('auth-prenom').value.trim();
   const nom    = document.getElementById('auth-nom').value.trim();
@@ -250,9 +265,11 @@ async function signUp() {
   const err    = document.getElementById('auth-error');
   err.classList.add('hidden');
 
-  if (!prenom) { err.textContent = 'Prénom requis.';                 err.classList.remove('hidden'); return; }
-  if (!nom)    { err.textContent = 'Nom requis.';                    err.classList.remove('hidden'); return; }
-  if (pwd.length < 6) { err.textContent = 'Mot de passe trop court (min. 6 caractères).'; err.classList.remove('hidden'); return; }
+  if (!prenom)                  { err.textContent = 'Prénom requis.'; err.classList.remove('hidden'); return; }
+  if (!nom)                     { err.textContent = 'Nom requis.';    err.classList.remove('hidden'); return; }
+  if (!_EMAIL_RE.test(email))   { err.textContent = 'Email invalide.'; err.classList.remove('hidden'); return; }
+  const pwdErr = _validatePassword(pwd);
+  if (pwdErr)                   { err.textContent = pwdErr; err.classList.remove('hidden'); return; }
 
   try {
     const { error } = await sb.auth.signUp({
@@ -861,7 +878,7 @@ function renderPRs() {
   const addBtn = `<button class="pr-add-btn" onclick="openEditPR(null)">＋ Ajouter un record</button>`;
 
   if (!records.length) {
-    el.innerHTML = `${addBtn}<p style="color:#6b7280;font-size:13px;padding:12px 0">Aucun record pour l'instant. Enregistre des séances ou ajoute un record manuellement.</p>`;
+    el.innerHTML = `${addBtn}<div class="empty-state"><div class="empty-icon">🏋️</div><div class="empty-title">Aucun record encore</div><div class="empty-desc">Enregistre tes premières séances et tes records s'afficheront ici. Tu peux aussi en ajouter manuellement avec le bouton ci-dessus.</div></div>`;
     return;
   }
   el.innerHTML = addBtn + records.map(([name, r]) => {
@@ -1095,7 +1112,7 @@ async function renderProgression() {
 
     const names = new Set([...Object.keys(vol.now), ...Object.keys(vol.prev)]);
     if (names.size === 0) {
-      el.innerHTML = '<p style="color:#6b7280;font-size:13px;padding:8px 0">Enregistre quelques séances pour voir ta progression.</p>';
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">📈</div><div class="empty-title">Encore vide</div><div class="empty-desc">Enregistre au moins 2 séances la même semaine pour voir tes progressions s\'afficher.</div></div>';
       return;
     }
 
@@ -1124,32 +1141,39 @@ async function renderProgression() {
 
 // ── Historique ────────────────────────────────────
 let _allHistorySessions = [];
+let _historyShowCount   = 20;
 
 async function loadHistory() {
   if (!currentUser) return;
-
+  _historyShowCount = 20;
   try {
     const { data: sessions, error } = await sb
       .from('sessions').select('*, exercise_logs(*)')
       .eq('user_id', currentUser.id)
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(200);
 
     if (error) throw error;
     _allHistorySessions = sessions || [];
 
     if (!_allHistorySessions.length) {
-      const empty = '<p style="color:#6b7280;font-size:13px">Aucune séance enregistrée pour l\'instant.</p>';
-      ['dash-history', 'profile-history'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.innerHTML = empty;
-      });
+      const dashEmpty    = '<div class="empty-state empty-mini"><div class="empty-icon">🎯</div><div class="empty-desc">Démarre ta 1ère séance pour la voir apparaître ici !</div></div>';
+      const profileEmpty = '<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-title">Pas encore d\'historique</div><div class="empty-desc">Toutes tes séances enregistrées apparaîtront ici, avec leurs détails et statistiques.</div></div>';
+      const dash = document.getElementById('dash-history');
+      if (dash) dash.innerHTML = dashEmpty;
+      const prof = document.getElementById('profile-history');
+      if (prof) prof.innerHTML = profileEmpty;
       return;
     }
     renderHistory();
   } catch (e) {
     console.error('[FitPlan] loadHistory error:', e);
   }
+}
+
+function historyShowMore() {
+  _historyShowCount += 30;
+  renderHistory();
 }
 
 function _historyItemHtml(s) {
@@ -1176,12 +1200,21 @@ function renderHistory(queryRaw = '') {
     });
   }
   const dashHistory = document.getElementById('dash-history');
-  if (dashHistory) dashHistory.innerHTML = list.slice(0, 3).map(_historyItemHtml).join('') || '<p style="color:#6b7280;font-size:13px">Aucune séance.</p>';
+  if (dashHistory) dashHistory.innerHTML = list.slice(0, 3).map(_historyItemHtml).join('') || '<div class="empty-state empty-mini"><div class="empty-desc">Aucune séance récente</div></div>';
   const profileHistory = document.getElementById('profile-history');
   if (profileHistory) {
-    profileHistory.innerHTML = list.length
-      ? list.map(_historyItemHtml).join('')
-      : `<p style="color:#6b7280;font-size:13px;padding:8px 0">Aucun résultat pour "${query}".</p>`;
+    if (!list.length) {
+      profileHistory.innerHTML = `<div class="empty-state empty-mini"><div class="empty-desc">Aucun résultat pour "${query}"</div></div>`;
+    } else {
+      // Pagination client-side : affiche jusqu'à _historyShowCount, ou tout si recherche active
+      const visible = query ? list : list.slice(0, _historyShowCount);
+      let html = visible.map(_historyItemHtml).join('');
+      if (!query && list.length > _historyShowCount) {
+        const remaining = list.length - _historyShowCount;
+        html += `<button class="history-more-btn" onclick="historyShowMore()">↓ Voir plus (${remaining} restante${remaining > 1 ? 's' : ''})</button>`;
+      }
+      profileHistory.innerHTML = html;
+    }
   }
   const countEl = document.getElementById('history-count');
   if (countEl) countEl.textContent = query ? `${list.length} / ${_allHistorySessions.length} séance${list.length > 1 ? 's' : ''}` : `${_allHistorySessions.length} séance${_allHistorySessions.length > 1 ? 's' : ''}`;

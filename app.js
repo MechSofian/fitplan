@@ -130,6 +130,18 @@ function maybeShowTutorial() {
   } catch {}
 }
 
+// ═══ Mentions légales ════════════════════════════════
+function openLegalModal() {
+  const yearEl = document.getElementById('legal-year');
+  if (yearEl) yearEl.textContent = new Date().getFullYear();
+  document.getElementById('legal-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function closeLegalModal() {
+  document.getElementById('legal-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
 // ═══ PWA — enregistrement du service worker ═══════
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -497,7 +509,7 @@ function renderVolumeByMuscle() {
 
   const totalSets = Object.values(setsByGroup).reduce((a, b) => a + b, 0);
   if (totalSets === 0) {
-    el.innerHTML = '<p style="color:#6b7280;font-size:13px;padding:6px 0">Enregistre des séances pour voir le volume par groupe.</p>';
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">Aucune donnée cette semaine</div><div class="empty-desc">Logge tes séances avec poids et reps pour voir comment se répartit ton volume.</div></div>';
     return;
   }
 
@@ -1967,6 +1979,7 @@ document.addEventListener('keydown', e => {
     if (!document.getElementById('focus-overlay')?.classList.contains('hidden')) exitFocusMode();
     if (document.getElementById('tutorial-wrap') || document.getElementById('tutorial-overlay')) endTutorial();
     if (!document.getElementById('settings-modal')?.classList.contains('hidden')) closeSettingsModal();
+    if (!document.getElementById('legal-modal')?.classList.contains('hidden'))    closeLegalModal();
   }
 });
 
