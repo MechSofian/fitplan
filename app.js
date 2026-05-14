@@ -13,6 +13,7 @@ const state = {
   jours: 4,
   exerciseSwaps: {},                 // { 'Nom exo original': {nom, sets, muscle} }
   daySwaps: [0, 1, 2, 3, 4, 5, 6],   // permutation des jours : slot i affiche le prog de daySwaps[i]
+  customExercises: [],               // [{nom, sets, muscle}] — exercices créés par l'utilisateur
 };
 
 // ── Customizations persistence (localStorage par user) ──
@@ -28,13 +29,15 @@ function loadCustomizations() {
     const data = JSON.parse(raw);
     if (data.exerciseSwaps && typeof data.exerciseSwaps === 'object') state.exerciseSwaps = data.exerciseSwaps;
     if (Array.isArray(data.daySwaps) && data.daySwaps.length === 7)   state.daySwaps     = data.daySwaps;
+    if (Array.isArray(data.customExercises))                          state.customExercises = data.customExercises;
   } catch {}
 }
 function saveCustomizations() {
   try {
     localStorage.setItem(_customKey(), JSON.stringify({
-      exerciseSwaps: state.exerciseSwaps,
-      daySwaps:      state.daySwaps,
+      exerciseSwaps:   state.exerciseSwaps,
+      daySwaps:        state.daySwaps,
+      customExercises: state.customExercises,
     }));
   } catch {}
 }
@@ -200,6 +203,35 @@ const SUGGESTED = {
   'Mollets debout':              { type:'kg', debutant:30,   intermediaire:60,   avance:100  },
   'Hip thrust barre':            { type:'bw', debutant:0.80, intermediaire:1.20, avance:1.60 },
   'Mollets assis':               { type:'kg', debutant:15,   intermediaire:30,   avance:60   },
+  // Nouveaux exos
+  'Développé décliné barre':    { type:'bw', debutant:0.45, intermediaire:0.65, avance:0.85 },
+  'Écarté haltères couché':    { type:'kg', debutant:8,    intermediaire:14,   avance:20   },
+  'Cable crossover':             { type:'kg', debutant:10,   intermediaire:18,   avance:28   },
+  'Pec deck machine':            { type:'kg', debutant:25,   intermediaire:40,   avance:60   },
+  'Tractions supination':        { type:'kg', debutant:0,    intermediaire:0,    avance:8    },
+  'Rowing T-bar':                { type:'bw', debutant:0.40, intermediaire:0.60, avance:0.80 },
+  'Tirage horizontal poulie':    { type:'kg', debutant:30,   intermediaire:50,   avance:75   },
+  'Pullover haltère':            { type:'kg', debutant:12,   intermediaire:20,   avance:30   },
+  'Shrugs haltères':             { type:'kg', debutant:15,   intermediaire:25,   avance:40   },
+  'Développé haltères assis':    { type:'kg', debutant:14,   intermediaire:22,   avance:32   },
+  'Arnold press':                { type:'kg', debutant:10,   intermediaire:16,   avance:24   },
+  'Élévations latérales poulie':{ type:'kg', debutant:5,    intermediaire:9,    avance:14   },
+  'Y-raises':                    { type:'kg', debutant:4,    intermediaire:7,    avance:10   },
+  'Curl pupitre':                { type:'kg', debutant:12,   intermediaire:20,   avance:30   },
+  'Curl incliné haltères':       { type:'kg', debutant:8,    intermediaire:14,   avance:20   },
+  'Curl prise marteau corde':    { type:'kg', debutant:10,   intermediaire:18,   avance:25   },
+  'Extension verticale haltère': { type:'kg', debutant:12,   intermediaire:20,   avance:30   },
+  'Kick-back haltère':           { type:'kg', debutant:5,    intermediaire:8,    avance:12   },
+  'Extensions corde poulie':     { type:'kg', debutant:12,   intermediaire:22,   avance:35   },
+  'Hack squat':                  { type:'bw', debutant:0.60, intermediaire:0.85, avance:1.15 },
+  'Leg extension':               { type:'kg', debutant:25,   intermediaire:45,   avance:70   },
+  'Goblet squat':                { type:'kg', debutant:12,   intermediaire:20,   avance:30   },
+  'Bulgarian split squat':       { type:'kg', debutant:8,    intermediaire:14,   avance:20   },
+  'Soulevé de terre conventionnel':{ type:'bw', debutant:0.80, intermediaire:1.20, avance:1.60 },
+  'Good morning':                { type:'kg', debutant:25,   intermediaire:45,   avance:70   },
+  'Glute bridge barre':          { type:'bw', debutant:0.60, intermediaire:0.90, avance:1.30 },
+  'Kettlebell swing':            { type:'kg', debutant:12,   intermediaire:16,   avance:24   },
+  'Crunch poulie haute':         { type:'kg', debutant:18,   intermediaire:30,   avance:50   },
 };
 function suggestedKg(exName, bodyweight, niveau, genre) {
   const cfg = SUGGESTED[exName];
@@ -246,14 +278,91 @@ function calcMacros(calories, poids, objectif) {
 
 // ── Exercise database ─────────────────────────────
 const EX = {
-  pec:     [{ nom:'Développé couché barre', sets:'4×6–8', muscle:'Pectoraux' },{ nom:'Développé incliné haltères', sets:'3×10–12', muscle:'Pectoraux haut' },{ nom:'Écarté poulie basse', sets:'3×12–15', muscle:'Pectoraux' },{ nom:'Pompes lestées', sets:'3×max', muscle:'Pectoraux' }],
-  dos:     [{ nom:'Tractions / Lat pulldown', sets:'4×8–10', muscle:'Grand dorsal' },{ nom:'Rowing barre', sets:'4×8–10', muscle:'Dos épais' },{ nom:'Rowing haltère 1 bras', sets:'3×10–12', muscle:'Grand dorsal' },{ nom:'Face pull poulie', sets:'3×15', muscle:'Trapèzes / Rotateurs' }],
-  epaules: [{ nom:'Développé militaire barre', sets:'4×6–8', muscle:'Épaules' },{ nom:'Élévations latérales', sets:'4×12–15', muscle:'Deltoïdes latéraux' },{ nom:'Élévations frontales', sets:'3×12', muscle:'Deltoïdes antérieurs' },{ nom:'Oiseau poulie', sets:'3×15', muscle:'Deltoïdes postérieurs' }],
-  biceps:  [{ nom:'Curl barre EZ', sets:'3×10–12', muscle:'Biceps' },{ nom:'Curl haltères marteau', sets:'3×12', muscle:'Brachial / Biceps' }],
-  triceps: [{ nom:'Dips lestés / Barre au front', sets:'4×8–10', muscle:'Triceps' },{ nom:'Pushdown poulie', sets:'3×12–15', muscle:'Triceps' }],
-  jambesQ: [{ nom:'Squat barre', sets:'4×6–8', muscle:'Quadriceps / Fessiers' },{ nom:'Presse à cuisses', sets:'3×10–12', muscle:'Quadriceps' },{ nom:'Fentes marchées', sets:'3×12/j', muscle:'Quadriceps / Fessiers' },{ nom:'Mollets debout', sets:'4×15–20', muscle:'Mollets' }],
-  jambesI: [{ nom:'Soulevé de terre roumain', sets:'4×8–10', muscle:'Ischio / Fessiers' },{ nom:'Leg curl couché', sets:'3×12–15', muscle:'Ischio-jambiers' },{ nom:'Hip thrust barre', sets:'3×12', muscle:'Fessiers' },{ nom:'Mollets assis', sets:'4×15–20', muscle:'Soléaire' }],
-  cardio:  [{ nom:'Tapis de course — LISS', sets:'30 min, 65% FC max', muscle:'' },{ nom:'Vélo elliptique', sets:'25 min, intensité modérée', muscle:'' },{ nom:'HIIT — Intervalles', sets:'20 min (30s sprint/90s repos)', muscle:'' },{ nom:'Corde à sauter', sets:'4×3 min', muscle:'' }],
+  pec: [
+    { nom:'Développé couché barre',      sets:'4×6–8',   muscle:'Pectoraux' },
+    { nom:'Développé incliné haltères',  sets:'3×10–12', muscle:'Pectoraux haut' },
+    { nom:'Développé décliné barre',     sets:'3×8–10',  muscle:'Pectoraux bas' },
+    { nom:'Écarté poulie basse',         sets:'3×12–15', muscle:'Pectoraux' },
+    { nom:'Écarté haltères couché',      sets:'3×12–15', muscle:'Pectoraux' },
+    { nom:'Cable crossover',             sets:'3×12',    muscle:'Pectoraux' },
+    { nom:'Pec deck machine',            sets:'3×12–15', muscle:'Pectoraux' },
+    { nom:'Pompes lestées',              sets:'3×max',   muscle:'Pectoraux' },
+    { nom:'Dips poids du corps',         sets:'3×max',   muscle:'Pectoraux / Triceps' },
+  ],
+  dos: [
+    { nom:'Tractions / Lat pulldown',    sets:'4×8–10',  muscle:'Grand dorsal' },
+    { nom:'Tractions supination',        sets:'4×max',   muscle:'Grand dorsal / Biceps' },
+    { nom:'Rowing barre',                sets:'4×8–10',  muscle:'Dos épais' },
+    { nom:'Rowing T-bar',                sets:'4×8–10',  muscle:'Dos épais' },
+    { nom:'Rowing haltère 1 bras',       sets:'3×10–12', muscle:'Grand dorsal' },
+    { nom:'Tirage horizontal poulie',    sets:'4×10–12', muscle:'Dos épais' },
+    { nom:'Pullover haltère',            sets:'3×12',    muscle:'Grand dorsal / Pectoraux' },
+    { nom:'Shrugs haltères',             sets:'3×15',    muscle:'Trapèzes' },
+    { nom:'Face pull poulie',            sets:'3×15',    muscle:'Trapèzes / Rotateurs' },
+  ],
+  epaules: [
+    { nom:'Développé militaire barre',   sets:'4×6–8',   muscle:'Épaules' },
+    { nom:'Développé haltères assis',    sets:'4×8–10',  muscle:'Épaules' },
+    { nom:'Arnold press',                sets:'3×10–12', muscle:'Épaules complet' },
+    { nom:'Élévations latérales',       sets:'4×12–15', muscle:'Deltoïdes latéraux' },
+    { nom:'Élévations latérales poulie',sets:'3×12–15', muscle:'Deltoïdes latéraux' },
+    { nom:'Élévations frontales',       sets:'3×12',    muscle:'Deltoïdes antérieurs' },
+    { nom:'Oiseau poulie',               sets:'3×15',    muscle:'Deltoïdes postérieurs' },
+    { nom:'Y-raises',                    sets:'3×15',    muscle:'Deltoïdes postérieurs' },
+  ],
+  biceps: [
+    { nom:'Curl barre EZ',               sets:'3×10–12', muscle:'Biceps' },
+    { nom:'Curl haltères marteau',       sets:'3×12',    muscle:'Brachial / Biceps' },
+    { nom:'Curl pupitre',                sets:'3×10–12', muscle:'Biceps' },
+    { nom:'Curl incliné haltères',       sets:'3×10–12', muscle:'Biceps long' },
+    { nom:'Curl prise marteau corde',    sets:'3×12',    muscle:'Brachial' },
+  ],
+  triceps: [
+    { nom:'Dips lestés / Barre au front',sets:'4×8–10',  muscle:'Triceps' },
+    { nom:'Pushdown poulie',             sets:'3×12–15', muscle:'Triceps' },
+    { nom:'Extension verticale haltère', sets:'3×10–12', muscle:'Triceps' },
+    { nom:'Kick-back haltère',           sets:'3×12–15', muscle:'Triceps' },
+    { nom:'Extensions corde poulie',     sets:'3×12–15', muscle:'Triceps' },
+  ],
+  jambesQ: [
+    { nom:'Squat barre',                 sets:'4×6–8',   muscle:'Quadriceps / Fessiers' },
+    { nom:'Hack squat',                  sets:'4×8–10',  muscle:'Quadriceps' },
+    { nom:'Presse à cuisses',           sets:'3×10–12', muscle:'Quadriceps' },
+    { nom:'Leg extension',               sets:'3×12–15', muscle:'Quadriceps' },
+    { nom:'Goblet squat',                sets:'3×10–12', muscle:'Quadriceps / Fessiers' },
+    { nom:'Bulgarian split squat',       sets:'3×10–12/j', muscle:'Quadriceps / Fessiers' },
+    { nom:'Fentes marchées',             sets:'3×12/j',  muscle:'Quadriceps / Fessiers' },
+    { nom:'Mollets debout',              sets:'4×15–20', muscle:'Mollets' },
+  ],
+  jambesI: [
+    { nom:'Soulevé de terre roumain',   sets:'4×8–10',  muscle:'Ischio / Fessiers' },
+    { nom:'Soulevé de terre conventionnel', sets:'4×6–8', muscle:'Dos / Ischio / Fessiers' },
+    { nom:'Good morning',                sets:'3×10',    muscle:'Ischio / Bas du dos' },
+    { nom:'Leg curl couché',             sets:'3×12–15', muscle:'Ischio-jambiers' },
+    { nom:'Hip thrust barre',            sets:'3×12',    muscle:'Fessiers' },
+    { nom:'Glute bridge barre',          sets:'3×12–15', muscle:'Fessiers' },
+    { nom:'Kettlebell swing',            sets:'3×15–20', muscle:'Ischio / Fessiers' },
+    { nom:'Mollets assis',               sets:'4×15–20', muscle:'Soléaire' },
+  ],
+  abdo: [
+    { nom:'Crunch',                      sets:'3×15–20', muscle:'Abdominaux' },
+    { nom:'Crunch poulie haute',         sets:'3×15',    muscle:'Abdominaux' },
+    { nom:'Relevés de jambes suspendu', sets:'3×10–15', muscle:'Abdos bas' },
+    { nom:'Planche (gainage)',           sets:'3×30–60s',muscle:'Core' },
+    { nom:'Gainage latéral',             sets:'3×30s/j', muscle:'Obliques' },
+    { nom:'Roulette abdo',               sets:'3×10–12', muscle:'Core' },
+    { nom:'Russian twist',               sets:'3×20',    muscle:'Obliques' },
+  ],
+  cardio: [
+    { nom:'Tapis de course — LISS',      sets:'30 min, 65% FC max',           muscle:'' },
+    { nom:'Marche inclinée tapis',       sets:'30 min, inclinaison 12%',      muscle:'' },
+    { nom:'Vélo elliptique',             sets:'25 min, intensité modérée',    muscle:'' },
+    { nom:'Rameur',                      sets:'20 min, intensité modérée',    muscle:'' },
+    { nom:'Stairmaster',                 sets:'20 min',                       muscle:'' },
+    { nom:'HIIT — Intervalles',          sets:'20 min (30s sprint/90s repos)',muscle:'' },
+    { nom:'Corde à sauter',              sets:'4×3 min',                      muscle:'' },
+    { nom:'Burpees',                     sets:'4×15',                         muscle:'' },
+  ],
 };
 
 const fbA = [EX.jambesQ[0], EX.pec[0], EX.dos[0], EX.epaules[0], EX.biceps[0], EX.triceps[0]];
@@ -569,6 +678,7 @@ const MUSCLE_GROUPS = {
   pec:'Pectoraux', dos:'Dos', epaules:'Épaules',
   biceps:'Biceps', triceps:'Triceps',
   jambesQ:'Jambes — Quadriceps', jambesI:'Jambes — Ischio / Fessiers',
+  abdo:'Abdos & Core',
   cardio:'Cardio',
 };
 
@@ -582,7 +692,33 @@ function openSwapEx(exName) {
     ? `Actuel : ${current.nom}  ·  Original : ${exName}`
     : `Original : ${exName}`;
 
-  list.innerHTML = Object.entries(EX).map(([key, exs]) => `
+  // Bouton "créer mon propre exercice" en haut
+  const createBtn = `
+    <button class="swap-create-btn" onclick="openCreateExModal()">
+      <span style="font-size:18px">＋</span>
+      <span>Créer mon propre exercice</span>
+    </button>`;
+
+  // Groupe "Mes exercices" si l'utilisateur en a créés
+  const customHtml = state.customExercises.length ? `
+    <div class="swap-group">
+      <div class="swap-group-title">✏️ Mes exercices</div>
+      ${state.customExercises.map((ex, idx) => {
+        const active = ex.nom === currentNom;
+        const safe   = ex.nom.replace(/'/g, "\\'");
+        return `
+          <div class="swap-option-row">
+            <button class="swap-option${active ? ' active' : ''}" style="flex:1" onclick="applyCustomExSwap(${idx})">
+              <span class="swap-option-name">${ex.nom}</span>
+              <span class="swap-option-meta">${ex.sets}</span>
+            </button>
+            <button class="swap-custom-delete" onclick="deleteCustomExercise(${idx})" title="Supprimer">✕</button>
+          </div>`;
+      }).join('')}
+    </div>` : '';
+
+  // Groupes standards
+  const stdHtml = Object.entries(EX).map(([key, exs]) => `
     <div class="swap-group">
       <div class="swap-group-title">${MUSCLE_GROUPS[key] ?? key}</div>
       ${exs.map(ex => {
@@ -594,8 +730,9 @@ function openSwapEx(exName) {
             <span class="swap-option-meta">${ex.sets}</span>
           </button>`;
       }).join('')}
-    </div>
-  `).join('');
+    </div>`).join('');
+
+  list.innerHTML = createBtn + customHtml + stdHtml;
 
   document.getElementById('swap-ex-modal').classList.remove('hidden');
   document.body.style.overflow = 'hidden';
@@ -610,6 +747,74 @@ function applyExSwap(newName, group) {
   renderDashboard();
   closeSwapExModal();
   showToast('✓ Exercice mis à jour');
+}
+function applyCustomExSwap(idx) {
+  if (!_swapExTarget) return;
+  const ex = state.customExercises[idx];
+  if (!ex) return;
+  state.exerciseSwaps[_swapExTarget] = ex;
+  saveCustomizations();
+  renderDashboard();
+  closeSwapExModal();
+  showToast('✓ Exercice personnalisé appliqué');
+}
+function deleteCustomExercise(idx) {
+  const ex = state.customExercises[idx];
+  if (!ex) return;
+  if (!confirm(`Supprimer "${ex.nom}" de tes exercices personnalisés ?`)) return;
+  // Si cet exo est utilisé dans des swaps, on les retire aussi
+  Object.entries(state.exerciseSwaps).forEach(([orig, swap]) => {
+    if (swap.nom === ex.nom) delete state.exerciseSwaps[orig];
+  });
+  state.customExercises.splice(idx, 1);
+  saveCustomizations();
+  renderDashboard();
+  // Re-render le modal s'il est ouvert
+  if (_swapExTarget) openSwapEx(_swapExTarget);
+}
+
+// ═══ Création d'un exercice perso ═══════════════════
+function openCreateExModal() {
+  document.getElementById('create-ex-modal').classList.remove('hidden');
+  document.getElementById('create-ex-nom').value = '';
+  document.getElementById('create-ex-sets').value = '';
+  document.getElementById('create-ex-muscle').value = '';
+  document.getElementById('create-ex-error').classList.add('hidden');
+  setTimeout(() => document.getElementById('create-ex-nom').focus(), 50);
+}
+function closeCreateExModal() {
+  document.getElementById('create-ex-modal').classList.add('hidden');
+}
+function saveCreateExercise() {
+  const nom    = document.getElementById('create-ex-nom').value.trim();
+  const sets   = document.getElementById('create-ex-sets').value.trim() || '3×10';
+  const muscle = document.getElementById('create-ex-muscle').value.trim();
+  const err    = document.getElementById('create-ex-error');
+
+  if (!nom) {
+    err.textContent = 'Le nom de l\'exercice est requis.';
+    err.classList.remove('hidden');
+    return;
+  }
+  if (state.customExercises.some(e => e.nom.toLowerCase() === nom.toLowerCase())) {
+    err.textContent = 'Un exercice avec ce nom existe déjà.';
+    err.classList.remove('hidden');
+    return;
+  }
+
+  const newEx = { nom, sets, muscle: muscle || 'Personnalisé' };
+  state.customExercises.push(newEx);
+  saveCustomizations();
+  closeCreateExModal();
+  showToast('✓ Exercice créé');
+
+  // Si on était en train de swap, applique direct
+  if (_swapExTarget) {
+    state.exerciseSwaps[_swapExTarget] = newEx;
+    saveCustomizations();
+    renderDashboard();
+    closeSwapExModal();
+  }
 }
 function resetExSwap() {
   if (!_swapExTarget) return;
@@ -677,6 +882,7 @@ document.addEventListener('keydown', e => {
     closeSwapExModal();
     closeSwapDayModal();
     closeSessionDetail();
+    closeCreateExModal();
   }
 });
 

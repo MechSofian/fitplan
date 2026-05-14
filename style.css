@@ -514,6 +514,27 @@ select option { background: #1f2937; }
 .swap-option-name { font-size: 13px; font-weight: 600; }
 .swap-option-meta { font-size: 11px; color: #f97316; font-weight: 700; flex-shrink: 0; }
 
+.swap-option-row {
+  display: flex; align-items: stretch; gap: 6px; margin-bottom: 4px;
+}
+.swap-option-row .swap-option { margin-bottom: 0; }
+.swap-custom-delete {
+  background: #1f2937; border: 1px solid #374151;
+  color: #6b7280; padding: 0 12px; border-radius: 8px;
+  cursor: pointer; transition: all 0.2s; font-size: 12px;
+}
+.swap-custom-delete:hover { border-color: #dc2626; color: #f87171; background: rgba(220,38,38,.1); }
+
+.swap-create-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 12px;
+  background: rgba(249,115,22,.08); border: 1.5px dashed rgba(249,115,22,.4);
+  color: #fb923c; font-weight: 700; font-size: 13px; cursor: pointer;
+  border-radius: 10px; margin-bottom: 14px;
+  transition: all 0.2s;
+}
+.swap-create-btn:hover { background: rgba(249,115,22,.15); border-color: #f97316; }
+
 .swap-day-option {
   display: flex; justify-content: space-between; align-items: center; gap: 10px;
   width: 100%; padding: 12px 14px; margin-bottom: 8px;

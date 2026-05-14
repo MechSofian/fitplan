@@ -86,6 +86,7 @@ function resetState() {
   state.niveau   = 'debutant';
   state.exerciseSwaps = {};
   state.daySwaps      = [0, 1, 2, 3, 4, 5, 6];
+  state.customExercises = [];
 
   const ageEl    = document.getElementById('age');
   const tailleEl = document.getElementById('taille');
