@@ -10,6 +10,7 @@ let currentUser          = null;
 let activeSession        = null;
 let _expectSignedOut     = false;
 let _profileLoadRunning  = false;
+let _initialSessionSeen  = false; // Supabase v2 émet un SIGNED_IN bidon au refresh AVANT INITIAL_SESSION — on l'ignore
 
 // ── Démarrage ─────────────────────────────────────
 // Cache l'onboarding immédiatement si le hash indique que l'utilisateur
@@ -23,16 +24,32 @@ if (location.hash === '#dashboard' || location.hash === '#profile') {
 // _profileLoadRunning évite les doubles appels si plusieurs événements
 // (INITIAL_SESSION + SIGNED_IN, ou init() + TOKEN_REFRESHED) arrivent ensemble.
 sb.auth.onAuthStateChange(async (event, session) => {
-  console.log('[FitPlan] onAuthStateChange:', event, 'session?', !!session?.user, 'state.objectif?', !!state.objectif, '_profileLoadRunning?', _profileLoadRunning);
+  console.log('[FitPlan] onAuthStateChange:', event, 'session?', !!session?.user, '_initialSessionSeen?', _initialSessionSeen);
+
   if (event === 'SIGNED_OUT') {
     _expectSignedOut = false;
     return;
+  }
+
+  // Supabase v2 émet parfois SIGNED_IN AVANT INITIAL_SESSION au refresh,
+  // mais le JWT n'est pas encore prêt → la requête hang. On l'ignore et
+  // on attend INITIAL_SESSION qui fire juste après avec un état stable.
+  if (event === 'SIGNED_IN' && !_initialSessionSeen) {
+    console.log('[FitPlan] SIGNED_IN ignoré (avant INITIAL_SESSION)');
+    return;
+  }
+
+  if (event === 'INITIAL_SESSION') {
+    _initialSessionSeen = true;
   }
 
   if (session?.user && !state.objectif && !_profileLoadRunning) {
     currentUser = session.user;
     renderAuthHeader();
     await loadProfile();
+  } else if (!session?.user && event === 'INITIAL_SESSION') {
+    renderAuthHeader();
+    showView('onboarding');
   }
 });
 
@@ -43,6 +60,7 @@ sb.auth.onAuthStateChange(async (event, session) => {
   try {
     const { data: { session } } = await sb.auth.getSession();
     console.log('[FitPlan] init() getSession result:', !!session?.user);
+    _initialSessionSeen = true; // après init(), tout SIGNED_IN est légitime
     if (session?.user && !state.objectif && !_profileLoadRunning) {
       currentUser = session.user;
       renderAuthHeader();
@@ -53,6 +71,7 @@ sb.auth.onAuthStateChange(async (event, session) => {
     }
   } catch (e) {
     console.error('[FitPlan] init() error:', e);
+    _initialSessionSeen = true;
     renderAuthHeader();
     showView('onboarding');
   }
