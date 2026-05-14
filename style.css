@@ -405,8 +405,11 @@ select option { background: #1f2937; }
 .detail-set-edit {
   background: #1f2937;
   padding: 8px 10px;
+  gap: 8px;
 }
-.detail-set-edit .input-with-unit input { font-size: 13px; padding: 6px 10px; }
+.detail-set-edit .input-with-unit { min-width: 0; }
+.detail-set-edit .input-with-unit input { font-size: 13px; padding: 6px 8px; min-width: 0; width: 100%; }
+.detail-set-edit .input-with-unit span { padding: 0 8px; font-size: 11px; }
 .detail-action-bar {
   display: flex; gap: 8px; justify-content: flex-end;
   margin-top: 18px; padding-top: 14px;
