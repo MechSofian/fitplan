@@ -11,29 +11,51 @@ let activeSession        = null;
 let _expectSignedOut     = false;
 let _profileLoadRunning  = false;
 
-// Si l'URL contient #dashboard ou #profile, l'utilisateur était connecté :
-// on cache l'onboarding immédiatement pour éviter le flash pendant que
-// onAuthStateChange + loadProfile() s'exécutent (appel réseau async).
+// ── Démarrage ─────────────────────────────────────
+// Cache l'onboarding immédiatement si le hash indique que l'utilisateur
+// était connecté, pour éviter le flash pendant l'appel réseau.
 if (location.hash === '#dashboard' || location.hash === '#profile') {
   document.getElementById('view-onboarding')?.classList.add('hidden');
 }
 
-// ── Auth state ────────────────────────────────────
+// Initialisation explicite via getSession() (lit le localStorage + rafraîchit
+// le JWT si expiré) — plus fiable que onAuthStateChange seul.
+(async function init() {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    currentUser = session?.user ?? null;
+  } catch (e) {
+    currentUser = null;
+  }
+
+  renderAuthHeader();
+
+  if (currentUser) {
+    await loadProfile();
+  } else {
+    showView('onboarding');
+  }
+})();
+
+// ── Auth state (événements dynamiques uniquement) ─
 sb.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_OUT') {
     _expectSignedOut = false;
     return;
   }
 
-  currentUser = session?.user ?? null;
-  renderAuthHeader();
+  // SIGNED_IN = connexion en direct (pas au refresh — géré par init())
+  if (event === 'SIGNED_IN') {
+    currentUser = session.user;
+    renderAuthHeader();
+    if (!state.objectif && !_profileLoadRunning) {
+      await loadProfile();
+    }
+  }
 
-  if (currentUser && !state.objectif && !_profileLoadRunning) {
-    // On a un user authentifié et le profil n'est pas encore chargé :
-    // couvre INITIAL_SESSION, SIGNED_IN et TOKEN_REFRESHED (JWT expiré au refresh)
-    await loadProfile();
-  } else if (!currentUser && event === 'INITIAL_SESSION') {
-    showView('onboarding');
+  // TOKEN_REFRESHED = simple renouvellement du JWT, pas besoin de recharger
+  if (event === 'TOKEN_REFRESHED' && session?.user) {
+    currentUser = session.user;
   }
 });
 
