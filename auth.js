@@ -301,6 +301,7 @@ async function loadProfile() {
     loadHistory();
     loadLastLogs();
     renderProgression();
+    renderStagnation();
   } catch (e) {
     console.error('[FitPlan] loadProfile exception:', e);
     showToast('⚠️ Impossible de charger le profil. Vérifie ta connexion.');
@@ -594,6 +595,7 @@ async function saveSession() {
     loadHistory();
     loadLastLogs();
     renderProgression();
+    renderStagnation();
     loadStreak().then(() => renderDashboard());
   } catch (e) {
     console.error('[FitPlan] saveSession error:', e);
@@ -937,6 +939,8 @@ async function renderProgression() {
 }
 
 // ── Historique ────────────────────────────────────
+let _allHistorySessions = [];
+
 async function loadHistory() {
   if (!currentUser) return;
 
@@ -945,11 +949,12 @@ async function loadHistory() {
       .from('sessions').select('*, exercise_logs(*)')
       .eq('user_id', currentUser.id)
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(100);
 
     if (error) throw error;
+    _allHistorySessions = sessions || [];
 
-    if (!sessions?.length) {
+    if (!_allHistorySessions.length) {
       const empty = '<p style="color:#6b7280;font-size:13px">Aucune séance enregistrée pour l\'instant.</p>';
       ['dash-history', 'profile-history'].forEach(id => {
         const el = document.getElementById(id);
@@ -957,27 +962,45 @@ async function loadHistory() {
       });
       return;
     }
-
-    const makeHtml = (list) => list.map(s => {
-      const date    = new Date(s.created_at).toLocaleDateString('fr-FR', { weekday:'short', day:'numeric', month:'short' });
-      const exCount = s.exercise_logs?.length ?? 0;
-      const noteIcon = s.notes ? '<span class="history-note-icon" title="Note présente">📝</span>' : '';
-      return `
-        <div class="history-item" onclick="openSessionDetail('${s.id}')" title="Voir le détail">
-          <div class="history-date">${date}</div>
-          <div class="history-label">${noteIcon}${s.label}</div>
-          <div class="history-meta">${exCount} exercice${exCount > 1 ? 's' : ''} →</div>
-        </div>`;
-    }).join('');
-
-    const dashHistory = document.getElementById('dash-history');
-    if (dashHistory) dashHistory.innerHTML = makeHtml(sessions.slice(0, 3));
-
-    const profileHistory = document.getElementById('profile-history');
-    if (profileHistory) profileHistory.innerHTML = makeHtml(sessions);
+    renderHistory();
   } catch (e) {
     console.error('[FitPlan] loadHistory error:', e);
   }
+}
+
+function _historyItemHtml(s) {
+  const date    = new Date(s.created_at).toLocaleDateString('fr-FR', { weekday:'short', day:'numeric', month:'short' });
+  const exCount = s.exercise_logs?.length ?? 0;
+  const noteIcon = s.notes ? '<span class="history-note-icon" title="Note présente">📝</span>' : '';
+  return `
+    <div class="history-item" onclick="openSessionDetail('${s.id}')" title="Voir le détail">
+      <div class="history-date">${date}</div>
+      <div class="history-label">${noteIcon}${s.label}</div>
+      <div class="history-meta">${exCount} exercice${exCount > 1 ? 's' : ''} →</div>
+    </div>`;
+}
+
+function renderHistory(queryRaw = '') {
+  const query = (queryRaw || document.getElementById('history-search')?.value || '').trim().toLowerCase();
+  let list = _allHistorySessions;
+  if (query) {
+    list = list.filter(s => {
+      const date = new Date(s.created_at).toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+      const exoNames = (s.exercise_logs || []).map(l => l.exercise_name).join(' ');
+      const hay = `${s.label ?? ''} ${date} ${s.notes ?? ''} ${exoNames}`.toLowerCase();
+      return hay.includes(query);
+    });
+  }
+  const dashHistory = document.getElementById('dash-history');
+  if (dashHistory) dashHistory.innerHTML = list.slice(0, 3).map(_historyItemHtml).join('') || '<p style="color:#6b7280;font-size:13px">Aucune séance.</p>';
+  const profileHistory = document.getElementById('profile-history');
+  if (profileHistory) {
+    profileHistory.innerHTML = list.length
+      ? list.map(_historyItemHtml).join('')
+      : `<p style="color:#6b7280;font-size:13px;padding:8px 0">Aucun résultat pour "${query}".</p>`;
+  }
+  const countEl = document.getElementById('history-count');
+  if (countEl) countEl.textContent = query ? `${list.length} / ${_allHistorySessions.length} séance${list.length > 1 ? 's' : ''}` : `${_allHistorySessions.length} séance${_allHistorySessions.length > 1 ? 's' : ''}`;
 }
 
 // ── Détail / édition d'une séance passée ──────────
@@ -1212,6 +1235,7 @@ async function saveSessionDetail() {
     loadHistory();
     loadLastLogs();
     renderProgression();
+    renderStagnation();
     loadPRs();
     loadStreak().then(() => renderDashboard());
   } catch (e) {
@@ -1233,6 +1257,7 @@ async function deleteWholeSession() {
     loadHistory();
     loadLastLogs();
     renderProgression();
+    renderStagnation();
     loadPRs();
     loadStreak().then(() => renderDashboard());
   } catch (e) {
@@ -1280,6 +1305,59 @@ function closeSessionDetail() {
   _detailSession = null;
   _detailEditing = false;
   _detailDeletedLogIds = [];
+}
+
+// ── Détection de stagnation ───────────────────────
+async function renderStagnation() {
+  const el = document.getElementById('dash-stagnation');
+  if (!el || !currentUser) return;
+  try {
+    const now = Date.now();
+    const threeWeeksAgo = new Date(now - 21 * 24 * 3600 * 1000);
+    const { data: sessions } = await sb.from('sessions')
+      .select('created_at, exercise_logs(exercise_name, sets)')
+      .eq('user_id', currentUser.id)
+      .gte('created_at', threeWeeksAgo.toISOString());
+
+    // Max poids par exo par semaine relative (0 = cette semaine)
+    const byEx = {};
+    for (const sess of sessions || []) {
+      const daysAgo = (now - new Date(sess.created_at).getTime()) / (24 * 3600 * 1000);
+      const wk = Math.floor(daysAgo / 7);
+      if (wk > 2) continue;
+      for (const log of sess.exercise_logs || []) {
+        const name = log.exercise_name;
+        byEx[name] = byEx[name] || [0, 0, 0];
+        let maxW = 0;
+        for (const set of log.sets || []) if (set?.weight > maxW) maxW = set.weight;
+        if (maxW > byEx[name][wk]) byEx[name][wk] = maxW;
+      }
+    }
+
+    const stagnant = [];
+    for (const [name, [w0, w1, w2]] of Object.entries(byEx)) {
+      // Besoin de données sur les 3 semaines, et pas de progression
+      if (w0 > 0 && w1 > 0 && w2 > 0 && w0 <= w2 && w1 <= w2) {
+        const next = Math.round((w2 + 2.5) * 2) / 2;
+        stagnant.push({ name, weight: w2, next });
+      }
+    }
+
+    if (stagnant.length === 0) {
+      el.innerHTML = '<p style="color:#6b7280;font-size:13px;padding:6px 0">✓ Aucune stagnation détectée sur les 3 dernières semaines.</p>';
+      return;
+    }
+    el.innerHTML = stagnant.slice(0, 5).map(s => `
+      <div class="stag-item">
+        <div class="stag-icon">⚠️</div>
+        <div class="stag-content">
+          <div class="stag-name">${s.name}</div>
+          <div class="stag-msg">Bloqué à <b>${s.weight} kg</b> depuis 3 sem. → tente <b>${s.next} kg</b> ou change la variante.</div>
+        </div>
+      </div>`).join('') + (stagnant.length > 5 ? `<p class="stag-more">+ ${stagnant.length - 5} autre${stagnant.length - 5 > 1 ? 's' : ''}…</p>` : '');
+  } catch (e) {
+    console.error('[FitPlan] renderStagnation:', e);
+  }
 }
 
 // ── Agenda / Calendrier ───────────────────────────

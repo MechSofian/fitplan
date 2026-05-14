@@ -9,7 +9,7 @@
   <title>FitPlan — Programme Personnalisé</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="stylesheet" href="style.css?v=21" />
+  <link rel="stylesheet" href="style.css?v=22" />
   <script>
     tailwind.config = {
       theme: { extend: { colors: { brand: { 500: '#f97316', 600: '#ea580c' } } } }
@@ -194,6 +194,7 @@
             <div id="split-label" class="split-badge mt-2"></div>
           </div>
           <div class="flex gap-2 flex-wrap">
+            <button class="btn-secondary" style="padding:8px 14px;font-size:13px" onclick="exportProgrammePDF()" title="Imprimer / Exporter en PDF">📤 PDF</button>
             <button class="btn-secondary" style="padding:8px 14px;font-size:13px" onclick="openProgrammeEditor()">🛠️ Personnaliser</button>
             <button class="btn-log" onclick="startSession()">+ Démarrer une séance</button>
           </div>
@@ -220,6 +221,15 @@
           <span class="text-xs text-gray-500">Volume total (kg × répétitions)</span>
         </div>
         <div id="dash-progression"></div>
+      </div>
+
+      <!-- Détection de stagnation -->
+      <div class="card mb-6">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <h2 class="text-lg font-bold flex items-center gap-2"><span>⚠️</span> Alertes stagnation</h2>
+          <span class="text-xs text-gray-500">Analyse sur 3 semaines glissantes</span>
+        </div>
+        <div id="dash-stagnation"></div>
       </div>
 
       <!-- Grille basse : Nutrition + Historique + Conseils -->
@@ -294,7 +304,13 @@
           <h1 class="text-3xl font-bold">Mon Profil</h1>
           <p class="text-gray-400 mt-1">Toutes tes données au même endroit.</p>
         </div>
-        <button class="btn-primary" onclick="editProgram()">✏️ Modifier le programme</button>
+        <div class="flex gap-2 items-center flex-wrap">
+          <div class="theme-toggle">
+            <button class="theme-toggle-btn active" data-theme="dark"  onclick="applyTheme('dark')"  title="Mode sombre">🌙</button>
+            <button class="theme-toggle-btn"        data-theme="light" onclick="applyTheme('light')" title="Mode clair">☀️</button>
+          </div>
+          <button class="btn-primary" onclick="editProgram()">✏️ Modifier le programme</button>
+        </div>
       </div>
 
       <!-- Stats cards -->
@@ -331,7 +347,15 @@
 
       <!-- Historique complet -->
       <div class="card" id="profile-history-card">
-        <h2 class="text-lg font-bold mb-4 flex items-center gap-2"><span>📅</span> Historique complet</h2>
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <h2 class="text-lg font-bold flex items-center gap-2"><span>📅</span> Historique complet</h2>
+          <span id="history-count" class="text-xs text-gray-500"></span>
+        </div>
+        <div class="history-search-wrap">
+          <span class="history-search-icon">🔍</span>
+          <input type="text" id="history-search" class="history-search-input" placeholder="Rechercher (exo, date, note, label…)" oninput="renderHistory()"/>
+          <button class="history-search-clear" onclick="document.getElementById('history-search').value=''; renderHistory();" title="Effacer">✕</button>
+        </div>
         <div id="profile-history"></div>
       </div>
 
@@ -527,7 +551,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=21"></script>
-  <script src="auth.js?v=21"></script>
+  <script src="app.js?v=22"></script>
+  <script src="auth.js?v=22"></script>
 </body>
 </html>

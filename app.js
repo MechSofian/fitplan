@@ -17,6 +17,29 @@ const state = {
   customProgramme: null,             // null = auto, sinon array de 7 jours {type, label, exercices[]}
 };
 
+// ═══ Thème (clair / sombre) ════════════════════════
+function applyTheme(theme) {
+  document.body.classList.toggle('theme-light', theme === 'light');
+  try { localStorage.setItem('fitplan-theme', theme); } catch {}
+  // Refresh des boutons toggle dans l'UI s'ils existent
+  document.querySelectorAll('.theme-toggle-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.theme === theme);
+  });
+}
+function loadTheme() {
+  try {
+    const saved = localStorage.getItem('fitplan-theme');
+    if (saved === 'light') document.body.classList.add('theme-light');
+    // Synchronise les boutons toggle quand le DOM sera prêt
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.theme-toggle-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.theme === (saved || 'dark'));
+      });
+    });
+  } catch {}
+}
+loadTheme(); // applique immédiatement au chargement
+
 // ═══ Rest timer ═════════════════════════════════════
 let _restTimer = { interval: null, remaining: 0, total: 0, paused: false };
 
@@ -1313,6 +1336,15 @@ document.addEventListener('keydown', e => {
 
 // ── Utils ─────────────────────────────────────────
 function printPage() { window.print(); }
+
+function exportProgrammePDF() {
+  document.body.classList.add('print-mode');
+  // Laisse le temps au navigateur d'appliquer les styles avant l'impression
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => document.body.classList.remove('print-mode'), 200);
+  }, 80);
+}
 
 function copyToClipboard() {
   if (!state.objectif) return;
