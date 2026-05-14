@@ -283,6 +283,9 @@ async function loadProfile() {
     // Restaurer le niveau dans l'UI
     document.querySelectorAll('.niveau-btn').forEach(b => b.classList.toggle('active', b.dataset.niveau === state.niveau));
 
+    // Chargement parallèle des données dérivées avant le 1er render
+    await Promise.all([loadStreak(), loadPRs()]);
+
     renderDashboard();
     renderProfile();
     document.getElementById('main-nav').classList.remove('hidden');
@@ -449,6 +452,7 @@ function renderActiveSession() {
         <div class="session-set-actions">
           <button class="btn-set-toggle" onclick="removeSet(${i})" ${ex._setCount <= 1 ? 'disabled' : ''}>− Série</button>
           <button class="btn-set-toggle" onclick="addSet(${i})"    ${ex._setCount >= 8 ? 'disabled' : ''}>+ Série</button>
+          <button class="btn-rest-start" onclick="startRestTimer(${getRestTime(ex)})">⏱ Repos ${getRestTime(ex)}s</button>
         </div>
       </div>`;
   }).join('');
@@ -509,6 +513,7 @@ function logCardio(exIdx, done) {
 function cancelSession() {
   activeSession = null;
   document.getElementById('session-card').classList.add('hidden');
+  restTimerStop();
 }
 
 async function saveSession() {
@@ -551,13 +556,118 @@ async function saveSession() {
     }
 
     cancelSession();
-    showToast('✓ Séance enregistrée !');
+    // Détection des nouveaux PR
+    const beforePRs = JSON.parse(JSON.stringify(_personalRecords));
+    await loadPRs();
+    const newPRs = [];
+    for (const [name, r] of Object.entries(_personalRecords)) {
+      const old = beforePRs[name] || { maxWeight: 0, est1RM: 0 };
+      if (r.maxWeight > (old.maxWeight ?? 0)) {
+        newPRs.push({ name, weight: r.maxWeight, reps: r.maxReps });
+      }
+    }
+    if (newPRs.length > 0) {
+      const p = newPRs[0];
+      setTimeout(() => showToast(`🏆 NOUVEAU PR — ${p.name} : ${p.weight}kg × ${p.reps}${newPRs.length > 1 ? ` (+${newPRs.length - 1})` : ''}`), 600);
+    } else {
+      showToast('✓ Séance enregistrée !');
+    }
     loadHistory();
     loadLastLogs();
     renderProgression();
+    loadStreak().then(() => renderDashboard());
   } catch (e) {
     console.error('[FitPlan] saveSession error:', e);
     showToast('❌ ' + (e.message ?? 'Erreur sauvegarde — vérifie la console'));
+  }
+}
+
+// ── Records personnels (PR) ───────────────────────
+async function loadPRs() {
+  if (!currentUser) { _personalRecords = {}; return; }
+  try {
+    const { data: sessions } = await sb.from('sessions')
+      .select('id, created_at, exercise_logs(exercise_name, sets)')
+      .eq('user_id', currentUser.id);
+    const prs = {};
+    for (const sess of sessions || []) {
+      const sessionVolumes = {};
+      for (const log of sess.exercise_logs || []) {
+        const name = log.exercise_name;
+        prs[name] = prs[name] || { maxWeight: 0, maxReps: 0, maxVolume: 0, est1RM: 0, date: null };
+        sessionVolumes[name] = sessionVolumes[name] || 0;
+        for (const set of log.sets || []) {
+          if (!set?.weight || !set?.reps) continue;
+          if (set.weight > prs[name].maxWeight) {
+            prs[name].maxWeight = set.weight;
+            prs[name].maxReps   = set.reps;
+            prs[name].date      = sess.created_at;
+          }
+          const est = calcEst1RM(set.weight, set.reps);
+          if (est > prs[name].est1RM) prs[name].est1RM = est;
+          sessionVolumes[name] += set.weight * set.reps;
+        }
+      }
+      Object.entries(sessionVolumes).forEach(([n, v]) => {
+        if (v > (prs[n]?.maxVolume || 0)) prs[n].maxVolume = v;
+      });
+    }
+    _personalRecords = prs;
+    renderPRs();
+  } catch (e) {
+    console.error('[FitPlan] loadPRs:', e);
+  }
+}
+
+function renderPRs() {
+  const el = document.getElementById('profile-prs');
+  if (!el) return;
+  const records = Object.entries(_personalRecords)
+    .filter(([, r]) => r.maxWeight > 0)
+    .sort((a, b) => b[1].est1RM - a[1].est1RM);
+  if (!records.length) {
+    el.innerHTML = '<p style="color:#6b7280;font-size:13px;padding:8px 0">Enregistre des séances pour voir tes records.</p>';
+    return;
+  }
+  el.innerHTML = records.map(([name, r]) => {
+    const dateStr = r.date ? new Date(r.date).toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'2-digit' }) : '';
+    return `
+      <div class="pr-row">
+        <div class="pr-name">${name}</div>
+        <div class="pr-vals">
+          <span class="pr-val"><span class="pr-lab">Max</span>${r.maxWeight} kg × ${r.maxReps}</span>
+          <span class="pr-val"><span class="pr-lab">1RM est.</span>${Math.round(r.est1RM)} kg</span>
+          ${dateStr ? `<span class="pr-date">${dateStr}</span>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Streak / Consistance ──────────────────────────
+async function loadStreak() {
+  if (!currentUser) { _currentStreak = { weeks: 0, thisWeek: 0 }; return; }
+  try {
+    const { data: sessions } = await sb.from('sessions')
+      .select('created_at')
+      .eq('user_id', currentUser.id);
+    if (!sessions?.length) { _currentStreak = { weeks: 0, thisWeek: 0 }; return; }
+    const weekSet = new Set(sessions.map(s => getISOWeek(s.created_at)));
+    const currentWeek = getISOWeek(new Date());
+    const thisWeek = sessions.filter(s => getISOWeek(s.created_at) === currentWeek).length;
+
+    let streak = 0;
+    let cur = currentWeek;
+    // Cas 1 : il y a une séance cette semaine → on compte cette semaine + précédentes
+    // Cas 2 : pas de séance cette semaine mais une dans la précédente → on compte à partir de la précédente
+    if (!weekSet.has(cur)) cur = previousISOWeek(cur);
+    while (weekSet.has(cur)) {
+      streak++;
+      cur = previousISOWeek(cur);
+    }
+    _currentStreak = { weeks: streak, thisWeek };
+  } catch (e) {
+    console.error('[FitPlan] loadStreak:', e);
+    _currentStreak = { weeks: 0, thisWeek: 0 };
   }
 }
 
@@ -889,10 +999,12 @@ async function saveSessionDetail() {
     _detailDeletedLogIds = [];
     // Recharge depuis DB pour afficher les valeurs finales
     await openSessionDetail(_detailSession.id);
-    // Rafraîchit l'historique + progression sur le dashboard
+    // Rafraîchit l'historique + progression + PR + streak
     loadHistory();
     loadLastLogs();
     renderProgression();
+    loadPRs();
+    loadStreak().then(() => renderDashboard());
   } catch (e) {
     console.error('[FitPlan] saveSessionDetail:', e);
     showToast('❌ ' + (e.message ?? 'Erreur sauvegarde'));
@@ -912,6 +1024,8 @@ async function deleteWholeSession() {
     loadHistory();
     loadLastLogs();
     renderProgression();
+    loadPRs();
+    loadStreak().then(() => renderDashboard());
   } catch (e) {
     console.error('[FitPlan] deleteWholeSession:', e);
     showToast('❌ ' + (e.message ?? 'Erreur suppression'));

@@ -330,6 +330,116 @@ select option { background: #1f2937; }
 .modal-yt-btn  { display: block; text-align: center; background: #ff0000; color: white; font-weight: 700; font-size: 14px; padding: 12px; border-radius: 10px; text-decoration: none; transition: opacity 0.2s; }
 .modal-yt-btn:hover { opacity: .85; }
 
+/* ===== Rest timer flottant ===== */
+.rest-timer {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: linear-gradient(135deg, #1a1f2e, #111827);
+  border: 1.5px solid #f97316;
+  border-radius: 18px;
+  padding: 16px 20px;
+  box-shadow: 0 10px 40px rgba(249,115,22,.35), 0 4px 16px rgba(0,0,0,.5);
+  z-index: 60;
+  min-width: 240px;
+}
+.rest-timer-label {
+  font-size: 11px; color: #fb923c; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .08em;
+  text-align: center; margin-bottom: 4px;
+}
+.rest-timer-display {
+  font-size: 40px; font-weight: 900; color: white;
+  text-align: center; font-variant-numeric: tabular-nums;
+  line-height: 1; margin-bottom: 10px;
+  font-family: 'Segoe UI', monospace;
+}
+.rest-timer-progress {
+  height: 4px; background: #1f2937; border-radius: 2px; overflow: hidden;
+  margin-bottom: 12px;
+}
+.rest-timer-bar {
+  height: 100%; background: linear-gradient(90deg, #fb923c, #f97316);
+  transition: width 1s linear; border-radius: 2px;
+}
+.rest-timer-actions { display: flex; gap: 6px; justify-content: center; }
+.rest-timer-actions button {
+  background: #1f2937; border: 1px solid #374151;
+  color: #d1d5db; padding: 7px 11px; border-radius: 8px;
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: all 0.2s; min-width: 38px;
+}
+.rest-timer-actions button:hover { background: #374151; }
+.rest-timer-close { color: #f87171 !important; border-color: rgba(220,38,38,.3) !important; }
+.rest-timer.finished {
+  border-color: #16a34a;
+  animation: pulse-rest 0.6s ease-in-out infinite alternate;
+}
+.rest-timer.finished .rest-timer-display { color: #4ade80; }
+.rest-timer.finished .rest-timer-label::after { content: ' — Terminé !'; color: #4ade80; }
+@keyframes pulse-rest {
+  from { box-shadow: 0 10px 40px rgba(74,222,128,.3); transform: scale(1); }
+  to   { box-shadow: 0 10px 50px rgba(74,222,128,.7); transform: scale(1.02); }
+}
+@media (max-width: 480px) {
+  .rest-timer { left: 12px; right: 12px; bottom: 12px; min-width: 0; }
+  .rest-timer-display { font-size: 34px; }
+}
+
+/* Bouton "démarrer repos" dans la séance */
+.btn-rest-start {
+  flex: 1; padding: 7px 10px; border-radius: 8px;
+  border: 1px solid rgba(249,115,22,.4); background: rgba(249,115,22,.1);
+  color: #fb923c; font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: all 0.2s; white-space: nowrap;
+}
+.btn-rest-start:hover { background: rgba(249,115,22,.2); border-color: #f97316; }
+
+/* ===== Streak / week badges (today-banner) ===== */
+.streak-badge, .week-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 700;
+  padding: 2px 10px; border-radius: 20px;
+  margin-left: 6px;
+}
+.streak-badge {
+  background: linear-gradient(135deg, rgba(249,115,22,.2), rgba(220,38,38,.2));
+  border: 1px solid rgba(249,115,22,.4);
+  color: #fb923c;
+}
+.week-badge {
+  background: rgba(99,102,241,.15);
+  border: 1px solid rgba(99,102,241,.3);
+  color: #a5b4fc;
+}
+.today-meta {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+}
+
+/* ===== Records personnels ===== */
+.pr-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; margin-bottom: 8px;
+  background: rgba(249,115,22,.04);
+  border-left: 3px solid #f97316;
+  border-radius: 8px;
+  gap: 14px; flex-wrap: wrap;
+}
+.pr-row:last-child { margin-bottom: 0; }
+.pr-name { font-size: 14px; font-weight: 700; color: #f1f5f9; flex: 1; min-width: 160px; }
+.pr-vals { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.pr-val {
+  display: flex; flex-direction: column; align-items: flex-end;
+  font-size: 14px; font-weight: 800; color: #fb923c;
+}
+.pr-lab { font-size: 9px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; }
+.pr-date { font-size: 11px; color: #6b7280; font-weight: 500; }
+@media (max-width: 480px) {
+  .pr-row { padding: 10px 12px; }
+  .pr-name { min-width: 100%; }
+  .pr-vals { width: 100%; justify-content: space-between; }
+}
+
 /* ===== Toast ===== */
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);

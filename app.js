@@ -16,6 +16,128 @@ const state = {
   customExercises: [],               // [{nom, sets, muscle}] — exercices créés par l'utilisateur
 };
 
+// ═══ Rest timer ═════════════════════════════════════
+let _restTimer = { interval: null, remaining: 0, total: 0, paused: false };
+
+function getRestTime(ex) {
+  if (!ex?.muscle) return 30; // cardio
+  const heavyCompounds = [
+    'Squat barre','Hack squat',
+    'Soulevé de terre roumain','Soulevé de terre conventionnel','Good morning',
+    'Développé couché barre','Développé décliné barre',
+    'Développé militaire barre','Développé haltères assis',
+    'Rowing barre','Rowing T-bar',
+    'Hip thrust barre','Glute bridge barre',
+  ];
+  if (heavyCompounds.includes(ex.nom)) return 180;
+  const reps = parseInt(ex.sets?.match(/×\s*(\d+)/)?.[1]) || 10;
+  if (reps <= 6)  return 150;
+  if (reps <= 8)  return 120;
+  if (reps >= 15) return 60;
+  return 90;
+}
+
+function startRestTimer(seconds) {
+  if (_restTimer.interval) clearInterval(_restTimer.interval);
+  _restTimer.total = seconds;
+  _restTimer.remaining = seconds;
+  _restTimer.paused = false;
+  const w = document.getElementById('rest-timer');
+  w.classList.remove('hidden', 'finished');
+  document.getElementById('rest-timer-toggle').textContent = '⏸';
+  updateRestTimerDisplay();
+  _restTimer.interval = setInterval(tickRestTimer, 1000);
+}
+function tickRestTimer() {
+  if (_restTimer.paused) return;
+  _restTimer.remaining--;
+  updateRestTimerDisplay();
+  if (_restTimer.remaining <= 0) {
+    clearInterval(_restTimer.interval);
+    _restTimer.interval = null;
+    document.getElementById('rest-timer').classList.add('finished');
+    playBeep();
+    if (navigator.vibrate) try { navigator.vibrate([200, 100, 200, 100, 400]); } catch {}
+    // auto-hide après 6s
+    setTimeout(() => {
+      const w = document.getElementById('rest-timer');
+      if (w?.classList.contains('finished')) restTimerStop();
+    }, 6000);
+  }
+}
+function updateRestTimerDisplay() {
+  const r = Math.max(0, _restTimer.remaining);
+  const m = Math.floor(r / 60), s = r % 60;
+  const display = document.getElementById('rest-timer-display');
+  if (display) display.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  const bar = document.getElementById('rest-timer-bar');
+  if (bar) bar.style.width = Math.max(0, (r / _restTimer.total) * 100) + '%';
+}
+function restTimerAdjust(deltaSec) {
+  _restTimer.remaining = Math.max(5, _restTimer.remaining + deltaSec);
+  _restTimer.total = Math.max(_restTimer.total, _restTimer.remaining);
+  document.getElementById('rest-timer').classList.remove('finished');
+  if (!_restTimer.interval) _restTimer.interval = setInterval(tickRestTimer, 1000);
+  updateRestTimerDisplay();
+}
+function restTimerToggle() {
+  _restTimer.paused = !_restTimer.paused;
+  document.getElementById('rest-timer-toggle').textContent = _restTimer.paused ? '▶' : '⏸';
+}
+function restTimerStop() {
+  if (_restTimer.interval) clearInterval(_restTimer.interval);
+  _restTimer.interval = null;
+  _restTimer.paused = false;
+  document.getElementById('rest-timer').classList.add('hidden');
+  document.getElementById('rest-timer').classList.remove('finished');
+}
+function playBeep() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    [880, 1100, 880].forEach((freq, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = freq;
+      const t0 = ctx.currentTime + i * 0.2;
+      o.start(t0);
+      g.gain.setValueAtTime(0.3, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.18);
+      o.stop(t0 + 0.2);
+    });
+    setTimeout(() => ctx.close(), 1500);
+  } catch {}
+}
+
+// ═══ Records personnels (PR) ═══════════════════════
+// Brzycki 1RM = w / (1.0278 − 0.0278 × r)
+function calcEst1RM(weight, reps) {
+  if (!weight || !reps) return 0;
+  const r = Math.min(reps, 12);
+  return weight / (1.0278 - 0.0278 * r);
+}
+let _personalRecords = {};   // { 'Exo': {maxWeight, maxReps, maxVolume, est1RM, date} }
+
+// ═══ Streak / Consistance ═══════════════════════════
+let _currentStreak = { weeks: 0, thisWeek: 0 };
+function getISOWeek(d) {
+  const date = new Date(d);
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+  const week1 = new Date(date.getFullYear(), 0, 4);
+  const w = 1 + Math.round(((date - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+  return date.getFullYear() + '-W' + String(w).padStart(2, '0');
+}
+function previousISOWeek(weekStr) {
+  const [y, w] = weekStr.split('-W').map(Number);
+  if (w > 1) return y + '-W' + String(w - 1).padStart(2, '0');
+  // 1ère semaine → dernière de l'année précédente (52 ou 53)
+  const lastWeekPrevYear = getISOWeek(new Date(y - 1, 11, 28));
+  return lastWeekPrevYear;
+}
+
 // ── Customizations persistence (localStorage par user) ──
 function _customKey() {
   return (typeof currentUser !== 'undefined' && currentUser)
@@ -467,10 +589,19 @@ function renderDashboard() {
   const h = new Date().getHours();
   const greet = h < 6 ? 'Bonne nuit' : h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
   const greetLine = state.prenom ? `${greet}, <span style="color:#fb923c">${state.prenom}</span> 👋` : `${greet} 👋`;
+  const streakBadge = _currentStreak.weeks > 1
+    ? `<span class="streak-badge" title="${_currentStreak.weeks} semaines consécutives avec au moins 1 séance">🔥 ${_currentStreak.weeks} sem.</span>`
+    : '';
+  const weekBadge = `<span class="week-badge" title="Séances cette semaine">📅 ${_currentStreak.thisWeek}/${jours}</span>`;
+
   banner.innerHTML = `
     <div class="today-left">
       <div class="today-greet">${greetLine}</div>
-      <div class="today-meta">${objLabel} · ${jours} jours/semaine</div>
+      <div class="today-meta">
+        <span>${objLabel} · ${jours} jours/sem</span>
+        ${streakBadge}
+        ${weekBadge}
+      </div>
       <div class="today-day">${isRest ? '💤 Aujourd\'hui : Repos' : `Aujourd'hui — ${todayProg.label}`}</div>
       ${isRest ? '<div class="today-sub">Récupération active : étirements, marche légère.</div>' : `<div class="today-sub">${todayProg.exercices.length} exercices · Bonne séance 💪</div>`}
     </div>
