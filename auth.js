@@ -298,10 +298,12 @@ async function loadProfile() {
                       : location.hash === '#agenda'  ? 'calendar'
                       : 'dashboard';
     showView(initialView);
-    loadHistory();
+    await loadHistory();
     loadLastLogs();
     renderProgression();
     renderStagnation();
+    renderVolumeByMuscle();
+    renderBadges();
   } catch (e) {
     console.error('[FitPlan] loadProfile exception:', e);
     showToast('⚠️ Impossible de charger le profil. Vérifie ta connexion.');
@@ -592,10 +594,12 @@ async function saveSession() {
     } else {
       showToast('✓ Séance enregistrée !');
     }
-    loadHistory();
+    await loadHistory();
     loadLastLogs();
     renderProgression();
     renderStagnation();
+    renderVolumeByMuscle();
+    renderBadges();
     loadStreak().then(() => renderDashboard());
   } catch (e) {
     console.error('[FitPlan] saveSession error:', e);
@@ -1232,10 +1236,12 @@ async function saveSessionDetail() {
     // Recharge depuis DB pour afficher les valeurs finales
     await openSessionDetail(_detailSession.id);
     // Rafraîchit l'historique + progression + PR + streak
-    loadHistory();
+    await loadHistory();
     loadLastLogs();
     renderProgression();
     renderStagnation();
+    renderVolumeByMuscle();
+    renderBadges();
     loadPRs();
     loadStreak().then(() => renderDashboard());
   } catch (e) {
@@ -1254,10 +1260,12 @@ async function deleteWholeSession() {
     if (error) throw error;
     showToast('✓ Séance supprimée');
     closeSessionDetail();
-    loadHistory();
+    await loadHistory();
     loadLastLogs();
     renderProgression();
     renderStagnation();
+    renderVolumeByMuscle();
+    renderBadges();
     loadPRs();
     loadStreak().then(() => renderDashboard());
   } catch (e) {

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fb923c"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+  </defs>
+  <!-- Full bleed background pour zone safe maskable -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- Dumbbell centré dans la safe area (80% interne) -->
+  <g fill="white" transform="translate(0, 0)">
+    <rect x="120" y="244" width="32" height="40"  rx="6"/>
+    <rect x="160" y="220" width="50" height="88"  rx="12"/>
+    <rect x="220" y="252" width="72" height="24"  rx="6"/>
+    <rect x="302" y="220" width="50" height="88"  rx="12"/>
+    <rect x="360" y="244" width="32" height="40"  rx="6"/>
+  </g>
+</svg>

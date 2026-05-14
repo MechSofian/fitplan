@@ -1,0 +1,27 @@
+{
+  "name": "FitPlan",
+  "short_name": "FitPlan",
+  "description": "Programme de musculation personnalisé",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#030712",
+  "theme_color": "#f97316",
+  "lang": "fr",
+  "categories": ["fitness", "health", "sports"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

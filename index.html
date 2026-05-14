@@ -6,11 +6,18 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
+  <meta name="theme-color" content="#f97316" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="FitPlan" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="apple-touch-icon" href="icon.svg" />
   <title>FitPlan — Programme Personnalisé</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=25" />
+  <link rel="stylesheet" href="style.css?v=26" />
   <script>
     tailwind.config = {
       theme: { extend: { colors: { brand: { 500: '#f97316', 600: '#ea580c' } } } }
@@ -224,6 +231,15 @@
         <div id="dash-progression"></div>
       </div>
 
+      <!-- Volume par groupe musculaire -->
+      <div class="card mb-6">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <h2 class="text-lg font-bold flex items-center gap-2"><span>📊</span> Volume hebdomadaire par groupe</h2>
+          <span class="text-xs text-gray-500">7 derniers jours · séries effectives</span>
+        </div>
+        <div id="dash-volume-muscle"></div>
+      </div>
+
       <!-- Détection de stagnation -->
       <div class="card mb-6">
         <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -344,6 +360,12 @@
       <div class="card mb-6">
         <h2 class="text-lg font-bold mb-4 flex items-center gap-2"><span>🏆</span> Tes records personnels</h2>
         <div id="profile-prs"></div>
+      </div>
+
+      <!-- Badges / Accomplissements -->
+      <div class="card mb-6">
+        <h2 class="text-lg font-bold mb-4 flex items-center gap-2"><span>🎖️</span> Badges débloqués</h2>
+        <div id="profile-badges"></div>
       </div>
 
       <!-- Historique complet -->
@@ -552,7 +574,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=25"></script>
-  <script src="auth.js?v=25"></script>
+  <script src="app.js?v=26"></script>
+  <script src="auth.js?v=26"></script>
 </body>
 </html>

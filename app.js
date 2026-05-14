@@ -40,6 +40,20 @@ function loadTheme() {
 }
 loadTheme(); // applique immédiatement au chargement
 
+// ═══ PWA — enregistrement du service worker ═══════
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js')
+      .then(reg => console.log('[FitPlan] SW enregistré, scope:', reg.scope))
+      .catch(err => console.warn('[FitPlan] SW échec:', err));
+  });
+}
+
+// Affiche un toast lors de l'événement "appinstalled"
+window.addEventListener('appinstalled', () => {
+  if (typeof showToast === 'function') showToast('✓ FitPlan installé !');
+});
+
 // ═══ Rest timer ═════════════════════════════════════
 let _restTimer = { interval: null, remaining: 0, total: 0, paused: false };
 
@@ -195,6 +209,178 @@ function renderLineChart(points, opts = {}) {
       ${dots}
       ${yMinLbl}${yMaxLbl}${xMinLbl}${xMaxLbl}
     </svg>`;
+}
+
+// ═══ Volume par groupe musculaire ═══════════════════
+// Recommandations sciences (Schoenfeld et al.) : 10-20 sets/sem pour hypertrophie
+const MG_INFO = {
+  pec:     { label:'Pectoraux',          color:'#f97316', min:10, max:20 },
+  dos:     { label:'Dos',                color:'#0ea5e9', min:10, max:20 },
+  epaules: { label:'Épaules',            color:'#a78bfa', min:10, max:20 },
+  biceps:  { label:'Biceps',             color:'#ec4899', min:6,  max:14 },
+  triceps: { label:'Triceps',            color:'#fb7185', min:6,  max:14 },
+  jambesQ: { label:'Quadriceps',         color:'#34d399', min:10, max:20 },
+  jambesI: { label:'Ischio / Fessiers',  color:'#22c55e', min:10, max:20 },
+  abdo:    { label:'Abdos / Core',       color:'#fbbf24', min:6,  max:16 },
+};
+
+function exerciseToMuscleGroup(exName) {
+  // Cherche dans EX
+  for (const [key, exs] of Object.entries(EX)) {
+    if (key === 'cardio') continue;
+    if (exs.some(e => e.nom === exName)) return key;
+  }
+  // Cherche dans les customs (via le champ muscle)
+  const custom = state.customExercises?.find(e => e.nom === exName);
+  if (custom?.muscle) {
+    const m = custom.muscle.toLowerCase();
+    if (m.includes('pec'))                        return 'pec';
+    if (m.includes('dorsal') || m.includes('dos') || m.includes('trapèze') || m.includes('rotateur')) return 'dos';
+    if (m.includes('épaule') || m.includes('deltoïde'))                                              return 'epaules';
+    if (m.includes('biceps') || m.includes('brachial'))                                              return 'biceps';
+    if (m.includes('triceps'))                                                                       return 'triceps';
+    if (m.includes('quadriceps') || m.includes('fessier') && !m.includes('ischio'))                  return 'jambesQ';
+    if (m.includes('ischio') || m.includes('mollets') || m.includes('soléaire'))                    return 'jambesI';
+    if (m.includes('abdo') || m.includes('core') || m.includes('oblique'))                          return 'abdo';
+  }
+  return null;
+}
+
+function renderVolumeByMuscle() {
+  const el = document.getElementById('dash-volume-muscle');
+  if (!el) return;
+
+  const sessions = (typeof _allHistorySessions !== 'undefined') ? _allHistorySessions : [];
+  const now = Date.now();
+  const sevenDaysAgo = now - 7 * 24 * 3600 * 1000;
+
+  // Compte les séries effectives (avec poids ET reps) de la semaine
+  const setsByGroup = {};
+  for (const sess of sessions) {
+    if (new Date(sess.created_at).getTime() < sevenDaysAgo) continue;
+    for (const log of sess.exercise_logs || []) {
+      const group = exerciseToMuscleGroup(log.exercise_name);
+      if (!group || !MG_INFO[group]) continue;
+      const validSets = (log.sets || []).filter(s => s?.weight && s?.reps).length;
+      setsByGroup[group] = (setsByGroup[group] || 0) + validSets;
+    }
+  }
+
+  const totalSets = Object.values(setsByGroup).reduce((a, b) => a + b, 0);
+  if (totalSets === 0) {
+    el.innerHTML = '<p style="color:#6b7280;font-size:13px;padding:6px 0">Enregistre des séances pour voir le volume par groupe.</p>';
+    return;
+  }
+
+  const rows = Object.entries(MG_INFO).map(([key, info]) => {
+    const sets = setsByGroup[key] || 0;
+    const pct  = Math.min(100, (sets / info.max) * 100);
+    // Statut : sous-min / dans la zone / au-dessus
+    let status, statusColor;
+    if (sets === 0)              { status = '—',     statusColor = '#6b7280'; }
+    else if (sets < info.min)    { status = '↓',     statusColor = '#f87171'; }
+    else if (sets <= info.max)   { status = '✓',     statusColor = '#4ade80'; }
+    else                          { status = '↑',     statusColor = '#fbbf24'; }
+    return `
+      <div class="vol-row">
+        <div class="vol-name">${info.label}</div>
+        <div class="vol-bar-wrap">
+          <div class="vol-bar" style="width:${pct}%;background:${info.color}"></div>
+          <div class="vol-target" style="left:${(info.min / info.max) * 100}%" title="Minimum recommandé"></div>
+        </div>
+        <div class="vol-val" style="color:${statusColor}">${sets} <span class="vol-target-txt">/ ${info.min}–${info.max}</span> ${status}</div>
+      </div>`;
+  }).join('');
+
+  el.innerHTML = rows + `<p class="vol-legend">Recommandation scientifique : 10–20 séries/sem pour les gros groupes, 6–14 pour les petits. Une série compte si poids + reps renseignés.</p>`;
+}
+
+// ═══ Badges / Accomplissements ═══════════════════════
+const BADGES = [
+  { id:'first-session', icon:'🎯', name:'Premier pas',         desc:'Première séance enregistrée',     check:s => s.totalSessions >= 1 },
+  { id:'sessions-10',   icon:'💪', name:'10 séances',          desc:'10 séances complétées',           check:s => s.totalSessions >= 10 },
+  { id:'sessions-25',   icon:'🥉', name:'25 séances',          desc:'25 séances complétées',           check:s => s.totalSessions >= 25 },
+  { id:'sessions-50',   icon:'🥈', name:'50 séances',          desc:'50 séances complétées',           check:s => s.totalSessions >= 50 },
+  { id:'sessions-100',  icon:'🥇', name:'Centurion',           desc:'100 séances — légendaire !',      check:s => s.totalSessions >= 100 },
+  { id:'streak-2',      icon:'⚡', name:'Régulier',             desc:'2 semaines consécutives',         check:s => s.streak >= 2 },
+  { id:'streak-4',      icon:'🌟', name:'Un mois',             desc:'4 semaines consécutives',         check:s => s.streak >= 4 },
+  { id:'streak-12',     icon:'💎', name:'Trimestre',           desc:'12 semaines consécutives',        check:s => s.streak >= 12 },
+  { id:'streak-26',     icon:'👑', name:'Semestre',            desc:'26 semaines consécutives',        check:s => s.streak >= 26 },
+  { id:'pr-3',          icon:'🚀', name:'Décolle',             desc:'3 records personnels battus',     check:s => s.totalPRs >= 3 },
+  { id:'pr-10',         icon:'🏆', name:'10 PR',               desc:'10 records personnels',           check:s => s.totalPRs >= 10 },
+  { id:'pr-20',         icon:'🏅', name:'Recordman',           desc:'20 records personnels',           check:s => s.totalPRs >= 20 },
+  { id:'volume-10k',    icon:'🐂', name:'Volume 10K',          desc:'10 000 kg·rép cumulés',           check:s => s.totalVolume >= 10000 },
+  { id:'volume-50k',    icon:'🦏', name:'Volume 50K',          desc:'50 000 kg·rép cumulés',           check:s => s.totalVolume >= 50000 },
+  { id:'volume-200k',   icon:'🐘', name:'Volume 200K',         desc:'200 000 kg·rép cumulés',          check:s => s.totalVolume >= 200000 },
+  { id:'bench-bw',      icon:'🏋️', name:'Bench = poids du corps', desc:'1RM bench ≥ ton poids',       check:s => s.benchVsBW >= 1 },
+  { id:'squat-1_5bw',   icon:'🦵', name:'Squat 1.5×BW',        desc:'1RM squat ≥ 1.5× ton poids',      check:s => s.squatVsBW >= 1.5 },
+  { id:'deadlift-2bw',  icon:'🐉', name:'Deadlift 2×BW',       desc:'1RM SDT ≥ 2× ton poids',          check:s => s.deadliftVsBW >= 2 },
+  { id:'notes-5',       icon:'📝', name:'5 notes',             desc:'5 séances commentées',            check:s => s.notedSessions >= 5 },
+  { id:'week-complete', icon:'🎖️', name:'Semaine complète',    desc:'Toutes tes séances de la semaine', check:s => s.thisWeekDone >= s.jours && s.jours > 0 },
+  { id:'custom-prog',   icon:'🛠️', name:'Architecte',          desc:'Programme personnalisé créé',     check:s => !!s.hasCustomProg },
+  { id:'custom-ex',     icon:'✏️', name:'Inventeur',           desc:'Premier exercice créé',           check:s => s.customExCount >= 1 },
+];
+
+function computeBadgeStats() {
+  const sessions = (typeof _allHistorySessions !== 'undefined') ? _allHistorySessions : [];
+  const totalSessions = sessions.length;
+
+  // Volume total + nb sessions avec notes
+  let totalVolume = 0, notedSessions = 0;
+  for (const sess of sessions) {
+    if (sess.notes) notedSessions++;
+    for (const log of sess.exercise_logs || []) {
+      for (const set of log.sets || []) {
+        if (set?.weight && set?.reps) totalVolume += set.weight * set.reps;
+      }
+    }
+  }
+
+  // PR : fusion (calculés + overrides)
+  const prs = (typeof getMergedPRs === 'function') ? getMergedPRs() : {};
+  const totalPRs = Object.values(prs).filter(r => r.maxWeight > 0).length;
+
+  // Ratios poids de corps pour les big 3
+  const bw = state.poids || 0;
+  const ratio = (exName) => {
+    const r = prs[exName];
+    return (r && r.est1RM && bw) ? r.est1RM / bw : 0;
+  };
+
+  return {
+    totalSessions,
+    totalVolume,
+    totalPRs,
+    notedSessions,
+    streak:         (typeof _currentStreak !== 'undefined') ? _currentStreak.weeks : 0,
+    thisWeekDone:   (typeof _currentStreak !== 'undefined') ? _currentStreak.thisWeek : 0,
+    jours:          state.jours || 0,
+    benchVsBW:      ratio('Développé couché barre'),
+    squatVsBW:      ratio('Squat barre'),
+    deadliftVsBW:   Math.max(ratio('Soulevé de terre conventionnel'), ratio('Soulevé de terre roumain')),
+    hasCustomProg:  Array.isArray(state.customProgramme) && state.customProgramme.length === 7,
+    customExCount:  state.customExercises?.length || 0,
+  };
+}
+
+function renderBadges() {
+  const el = document.getElementById('profile-badges');
+  if (!el) return;
+  const stats = computeBadgeStats();
+  const badges = BADGES.map(b => ({ ...b, earned: b.check(stats) }));
+  const earnedCount = badges.filter(b => b.earned).length;
+
+  // En-tête avec compteur
+  const header = `<div class="badges-header">${earnedCount} / ${badges.length} badges débloqués</div>`;
+  // Grille
+  const grid = badges.map(b => `
+    <div class="badge-item${b.earned ? ' earned' : ' locked'}" title="${b.desc}">
+      <div class="badge-icon">${b.earned ? b.icon : '🔒'}</div>
+      <div class="badge-name">${b.name}</div>
+      <div class="badge-desc">${b.desc}</div>
+    </div>
+  `).join('');
+  el.innerHTML = header + `<div class="badges-grid">${grid}</div>`;
 }
 
 // ═══ Streak / Consistance ═══════════════════════════
