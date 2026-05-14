@@ -1418,13 +1418,202 @@ document.addEventListener('keydown', e => {
 // ── Utils ─────────────────────────────────────────
 function printPage() { window.print(); }
 
-function exportProgrammePDF() {
-  document.body.classList.add('print-mode');
-  // Laisse le temps au navigateur d'appliquer les styles avant l'impression
-  setTimeout(() => {
-    window.print();
-    setTimeout(() => document.body.classList.remove('print-mode'), 200);
-  }, 80);
+// Export PDF avec jsPDF — layout propre, contrôlé, pas de "print" navigateur
+async function exportProgrammePDF() {
+  if (!window.jspdf?.jsPDF) {
+    showToast('⚠️ Bibliothèque PDF non chargée');
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+  const W = 210, H = 297, M = 14;
+  const orange   = [249, 115, 22];
+  const orangeLt = [255, 247, 237];
+  const orangeDk = [194, 65, 12];
+  const indigo   = [99, 102, 241];
+  const indigoLt = [238, 242, 255];
+  const indigoDk = [55, 48, 163];
+  const teal     = [13, 148, 136];
+  const tealLt   = [204, 251, 241];
+  const ink      = [31, 41, 55];
+  const muted    = [107, 114, 128];
+  const subtle   = [156, 163, 175];
+
+  // ─────────── HEADER (barre orange)
+  doc.setFillColor(...orange);
+  doc.rect(0, 0, W, 24, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.text('FitPlan', M, 15);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  const dateStr = new Date().toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' });
+  doc.text(`Programme de la semaine  •  ${dateStr}`, M, 20.5);
+
+  let y = 32;
+
+  // ─────────── NOM UTILISATEUR
+  const userName = [state.prenom, state.nom].filter(Boolean).join(' ');
+  if (userName) {
+    doc.setTextColor(...ink);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text(userName, M, y);
+    y += 5.5;
+  }
+
+  // ─────────── LIGNE PROFIL
+  doc.setTextColor(...muted);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  const objLabels    = { perte:'Perte de poids', maintien:'Maintien / Recomposition', masse:'Prise de masse' };
+  const niveauLabels = { debutant:'Débutant', intermediaire:'Intermédiaire', avance:'Avancé' };
+  const profileLine = [
+    objLabels[state.objectif],
+    state.jours ? `${state.jours} séances/sem` : null,
+    state.niveau ? `Niveau ${niveauLabels[state.niveau] || state.niveau}` : null,
+  ].filter(Boolean).join('  •  ');
+  if (profileLine) { doc.text(profileLine, M, y); y += 8; }
+
+  // ─────────── BLOC NUTRITION
+  if (state.poids && state.taille && state.age) {
+    const bmr    = calcBMR(state.genre, state.poids, state.taille, state.age);
+    const tdee   = calcTDEE(bmr, state.activite);
+    const cibles = calcTargetCals(tdee, state.objectif);
+    const macros = calcMacros(cibles, state.poids, state.objectif);
+
+    doc.setFillColor(...orangeLt);
+    doc.setDrawColor(253, 186, 116);
+    doc.roundedRect(M, y, W - 2 * M, 19, 2.5, 2.5, 'FD');
+
+    doc.setTextColor(...orangeDk);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text('NUTRITION CIBLE QUOTIDIENNE', M + 5, y + 5.5);
+
+    doc.setTextColor(...ink);
+    doc.setFontSize(15);
+    doc.text(`${cibles} kcal`, M + 5, y + 13);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(...muted);
+    const macroText = `Protéines ${macros.proteines}g   •   Lipides ${macros.lipides}g   •   Glucides ${macros.glucides}g`;
+    doc.text(macroText, W - M - 5, y + 13, { align: 'right' });
+
+    y += 24;
+  }
+
+  // ─────────── INTITULÉ PROGRAMME
+  const splitNames = {
+    perte:   {2:'Full Body 2×',3:'Full Body 3×',4:'Full Body + Cardio',5:'Full Body 3× + Cardio 2×',6:'Full Body 4× + Cardio 2×'},
+    maintien:{2:'Full Body 2×',3:'Full Body 3×',4:'Upper / Lower 4×',5:'Push / Pull / Legs 5×',6:'Push / Pull / Legs 6×'},
+    masse:   {2:'Full Body 2× lourd',3:'Full Body 3× lourd',4:'Upper / Lower 4×',5:'Push / Pull / Legs 5×',6:'Push / Pull / Legs 6×'},
+  };
+  const splitName = (state.customProgramme ? 'Programme personnalisé' : splitNames[state.objectif]?.[state.jours]) ?? '';
+  if (splitName) {
+    doc.setTextColor(...ink);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text(splitName, M, y);
+    y += 6.5;
+  }
+
+  // ─────────── 7 JOURS
+  const programme = getCustomProgramme();
+  for (let i = 0; i < 7; i++) {
+    const day = programme[i];
+    if (!day) continue;
+
+    const exos  = day.exercices || [];
+    const lines = Math.max(exos.length, 1);
+    const cardH = Math.max(15, 10 + lines * 4.6);
+
+    // Page break si nécessaire
+    if (y + cardH > H - 14) {
+      doc.addPage();
+      y = M;
+    }
+
+    // Couleurs selon le type
+    let bg, badgeCol;
+    if (day.type === 'rest')        { bg = indigoLt; badgeCol = indigoDk; }
+    else if (day.type === 'cardio') { bg = tealLt;   badgeCol = teal; }
+    else                            { bg = orangeLt; badgeCol = orangeDk; }
+
+    // Fond
+    doc.setFillColor(...bg);
+    doc.roundedRect(M, y, W - 2 * M, cardH, 2.5, 2.5, 'F');
+    // Petite barre verticale gauche colorée
+    doc.setFillColor(...badgeCol);
+    doc.rect(M, y, 2, cardH, 'F');
+
+    // Nom du jour
+    doc.setTextColor(...ink);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text(D[i].toUpperCase(), M + 5, y + 6.5);
+
+    // Badge type/label
+    doc.setTextColor(...badgeCol);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    const badgeText = (day.type === 'rest' ? 'REPOS' : (day.label || day.type)).toUpperCase();
+    doc.text(badgeText, M + 32, y + 6.5);
+
+    // Exercices
+    if (exos.length) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9.5);
+      let exY = y + 11.5;
+      for (const ex of exos) {
+        // Tronque le nom si trop long pour ne pas chevaucher les sets
+        let exName = ex.nom || '';
+        const nameMaxWidth = W - 2 * M - 60;
+        while (doc.getTextWidth(exName) > nameMaxWidth && exName.length > 3) {
+          exName = exName.slice(0, -1);
+        }
+        if (exName !== ex.nom) exName = exName.slice(0, -1) + '…';
+
+        doc.setTextColor(55, 65, 81);
+        doc.text(`•  ${exName}`, M + 7, exY);
+
+        // Sets à droite
+        doc.setTextColor(...orange);
+        doc.setFont('helvetica', 'bold');
+        doc.text(ex.sets || '', W - M - 4, exY, { align: 'right' });
+        doc.setFont('helvetica', 'normal');
+
+        exY += 4.6;
+      }
+    } else {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9.5);
+      doc.setTextColor(...muted);
+      doc.text('Récupération — étirements, marche légère', M + 7, y + 11.5);
+    }
+
+    y += cardH + 2.5;
+  }
+
+  // ─────────── FOOTER (chaque page)
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setTextColor(...subtle);
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7.5);
+    doc.text(`FitPlan  •  ${dateStr}  •  Page ${p}/${totalPages}`, W / 2, H - 7, { align: 'center' });
+    doc.text('Calculs basés sur la formule Mifflin-St Jeor — Consulte un professionnel de santé.', W / 2, H - 3.5, { align: 'center' });
+  }
+
+  const safeName = userName ? userName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase() : 'programme';
+  const fileDate = new Date().toISOString().slice(0, 10);
+  doc.save(`fitplan-${safeName}-${fileDate}.pdf`);
+  showToast('✓ PDF téléchargé');
 }
 
 function copyToClipboard() {

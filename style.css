@@ -1169,31 +1169,9 @@ body.theme-light .btn-set-toggle { background: #ffffff; border-color: #d1d5db; c
 body.theme-light .bg-gray-900, body.theme-light .bg-gray-900\/80, body.theme-light .bg-gray-950 { background: #ffffff !important; }
 body.theme-light footer { color: #9ca3af; }
 
-/* ===== Print / Export PDF ===== */
+/* L'export PDF utilise désormais jsPDF (génération directe). Le @media print est conservé minimal pour Ctrl+P éventuel. */
 @media print {
-  /* Cache tout sauf le programme de la semaine */
   header, footer, nav, .today-btn, .btn-log, .btn-primary, .btn-secondary,
-  #session-card, #toast, #rest-timer,
-  #view-onboarding, #view-profile, #view-calendar, #view-programme-editor,
-  .dash-bottom-grid, #dash-progression, #dash-stagnation,
-  .demo-btn, .swap-btn, .swap-day-btn { display: none !important; }
+  #session-card, #toast, #rest-timer { display: none !important; }
   body { background: white !important; color: black !important; }
-  body.theme-light, body { color: black !important; }
-  .card, .day-card, .today-banner {
-    background: white !important;
-    border: 1px solid #ccc !important;
-    box-shadow: none !important;
-    color: black !important;
-    break-inside: avoid;
-  }
-  .today-banner { margin-bottom: 20px; }
-  .today-greet, .today-meta, .today-day, .today-sub { color: #333 !important; }
-  .week-grid-7 { display: grid !important; grid-template-columns: repeat(7, 1fr) !important; gap: 6px !important; }
-  .day-name, .exercise-name, .exercise-sets, h1, h2, h3 { color: black !important; }
-  .day-type.training { background: #fed7aa !important; color: #9a3412 !important; }
-  .day-type.rest     { background: #c7d2fe !important; color: #3730a3 !important; }
-  .day-type.cardio   { background: #99f6e4 !important; color: #115e59 !important; }
-  .app-container { max-width: 100% !important; padding: 0 !important; }
-  main { padding: 0 !important; }
-  .split-badge { background: #fed7aa !important; color: #9a3412 !important; border-color: #fdba74 !important; }
 }
