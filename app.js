@@ -676,6 +676,7 @@ document.addEventListener('keydown', e => {
     closeRestModal();
     closeSwapExModal();
     closeSwapDayModal();
+    closeSessionDetail();
   }
 });
 
