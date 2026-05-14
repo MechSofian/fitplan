@@ -23,6 +23,7 @@ if (location.hash === '#dashboard' || location.hash === '#profile') {
 // _profileLoadRunning évite les doubles appels si plusieurs événements
 // (INITIAL_SESSION + SIGNED_IN, ou init() + TOKEN_REFRESHED) arrivent ensemble.
 sb.auth.onAuthStateChange(async (event, session) => {
+  console.log('[FitPlan] onAuthStateChange:', event, 'session?', !!session?.user, 'state.objectif?', !!state.objectif, '_profileLoadRunning?', _profileLoadRunning);
   if (event === 'SIGNED_OUT') {
     _expectSignedOut = false;
     return;
@@ -38,8 +39,10 @@ sb.auth.onAuthStateChange(async (event, session) => {
 // Fallback : getSession() force le rafraîchissement JWT si expiré et déclenche
 // loadProfile() si onAuthStateChange n'a pas encore répondu.
 (async function init() {
+  console.log('[FitPlan] init() START');
   try {
     const { data: { session } } = await sb.auth.getSession();
+    console.log('[FitPlan] init() getSession result:', !!session?.user);
     if (session?.user && !state.objectif && !_profileLoadRunning) {
       currentUser = session.user;
       renderAuthHeader();
@@ -49,6 +52,7 @@ sb.auth.onAuthStateChange(async (event, session) => {
       showView('onboarding');
     }
   } catch (e) {
+    console.error('[FitPlan] init() error:', e);
     renderAuthHeader();
     showView('onboarding');
   }
@@ -193,9 +197,16 @@ function signOut() {
 async function loadProfile() {
   if (!currentUser || _profileLoadRunning) return;
   _profileLoadRunning = true;
+  console.log('[FitPlan] loadProfile START for user', currentUser.id);
 
   try {
-    const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+    // Timeout de 8s pour éviter le freeze si la requête hang
+    const queryPromise = sb.from('profiles').select('*').eq('id', currentUser.id).single();
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Timeout: profil non chargé après 8s')), 8000)
+    );
+    const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+    console.log('[FitPlan] loadProfile query result:', { data, error });
 
     // PGRST116 = aucune ligne (premier passage) → onboarding normal
     if (error && error.code === 'PGRST116') {
