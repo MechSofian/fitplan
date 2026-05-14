@@ -9,7 +9,7 @@
   <title>FitPlan — Programme Personnalisé</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=13" />
   <script>
     tailwind.config = {
       theme: { extend: { colors: { brand: { 500: '#f97316', 600: '#ea580c' } } } }
@@ -284,6 +284,30 @@
     </div>
   </div>
 
+  <!-- Swap Exercice -->
+  <div id="swap-ex-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeSwapExModal()"></div>
+    <div class="modal-card" style="max-width:520px">
+      <button class="modal-close" onclick="closeSwapExModal()">✕</button>
+      <h3 class="modal-title">Remplacer l'exercice</h3>
+      <p id="swap-ex-current" style="font-size:12px;color:#9ca3af;margin-bottom:16px"></p>
+      <div id="swap-ex-list" style="max-height:55vh;overflow-y:auto;margin-bottom:14px"></div>
+      <button class="btn-secondary w-full" onclick="resetExSwap()">↺ Restaurer l'original</button>
+    </div>
+  </div>
+
+  <!-- Swap Jour -->
+  <div id="swap-day-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeSwapDayModal()"></div>
+    <div class="modal-card" style="max-width:440px">
+      <button class="modal-close" onclick="closeSwapDayModal()">✕</button>
+      <h3 class="modal-title">Échanger ce jour avec…</h3>
+      <p id="swap-day-current" style="font-size:12px;color:#9ca3af;margin-bottom:16px"></p>
+      <div id="swap-day-list" style="margin-bottom:14px"></div>
+      <button class="btn-secondary w-full" onclick="resetDaySwaps()">↺ Réinitialiser l'ordre</button>
+    </div>
+  </div>
+
   <!-- Jour de repos -->
   <div id="rest-modal" class="modal hidden">
     <div class="modal-overlay" onclick="closeRestModal()"></div>
@@ -300,7 +324,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=12"></script>
-  <script src="auth.js?v=12"></script>
+  <script src="app.js?v=13"></script>
+  <script src="auth.js?v=13"></script>
 </body>
 </html>

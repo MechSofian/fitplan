@@ -81,6 +81,8 @@ function resetState() {
   state.activite = 1.55;
   state.objectif = null;
   state.jours    = 4;
+  state.exerciseSwaps = {};
+  state.daySwaps      = [0, 1, 2, 3, 4, 5, 6];
 
   const ageEl    = document.getElementById('age');
   const tailleEl = document.getElementById('taille');
@@ -256,6 +258,9 @@ async function loadProfile() {
     }
     if (data.jours) { state.jours = data.jours; setJours(data.jours); }
 
+    // Charger les personnalisations (swaps d'exercices / jours) depuis localStorage
+    loadCustomizations();
+
     renderDashboard();
     renderProfile();
     document.getElementById('main-nav').classList.remove('hidden');
@@ -303,7 +308,7 @@ window.generateAndGo = async function () {
 function startSession() {
   if (!currentUser) { openAuthModal('login'); showToast('⚠️ Connecte-toi pour enregistrer tes séances'); return; }
 
-  const programme = buildProgramme(state.objectif, state.jours);
+  const programme = getCustomProgramme();
   const todayIdx  = (new Date().getDay() + 6) % 7;
   const todayProg = programme[todayIdx];
 

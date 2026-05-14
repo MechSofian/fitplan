@@ -9,7 +9,33 @@ const state = {
   activite: 1.55,
   objectif: null,
   jours: 4,
+  exerciseSwaps: {},                 // { 'Nom exo original': {nom, sets, muscle} }
+  daySwaps: [0, 1, 2, 3, 4, 5, 6],   // permutation des jours : slot i affiche le prog de daySwaps[i]
 };
+
+// ── Customizations persistence (localStorage par user) ──
+function _customKey() {
+  return (typeof currentUser !== 'undefined' && currentUser)
+    ? `fitplan-custom-${currentUser.id}`
+    : 'fitplan-custom-anon';
+}
+function loadCustomizations() {
+  try {
+    const raw = localStorage.getItem(_customKey());
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data.exerciseSwaps && typeof data.exerciseSwaps === 'object') state.exerciseSwaps = data.exerciseSwaps;
+    if (Array.isArray(data.daySwaps) && data.daySwaps.length === 7)   state.daySwaps     = data.daySwaps;
+  } catch {}
+}
+function saveCustomizations() {
+  try {
+    localStorage.setItem(_customKey(), JSON.stringify({
+      exerciseSwaps: state.exerciseSwaps,
+      daySwaps:      state.daySwaps,
+    }));
+  } catch {}
+}
 
 // ── View management ───────────────────────────────
 function showView(name) {
@@ -198,6 +224,22 @@ const REST  = j => ({ jour:j, type:'rest',     label:'Repos',  exercices:[] });
 const CARD  = (j,ex) => ({ jour:j, type:'cardio',  label:'Cardio', exercices:ex });
 const TRAIN = (j,l,ex) => ({ jour:j, type:'training', label:l,     exercices:ex });
 
+// Retourne le programme avec les customizations utilisateur appliquées
+function getCustomProgramme() {
+  const base = buildProgramme(state.objectif, state.jours);
+  if (!base.length) return [];
+  // 1. Swap des jours
+  const swapped = state.daySwaps.map((origIdx, slotIdx) => {
+    const src = base[origIdx] ?? base[slotIdx];
+    return { ...src, jour: D[slotIdx] };
+  });
+  // 2. Swap des exercices
+  return swapped.map(day => ({
+    ...day,
+    exercices: day.exercices.map(ex => state.exerciseSwaps[ex.nom] ?? ex),
+  }));
+}
+
 function buildProgramme(objectif, jours) {
   const p = {
     perte: {
@@ -234,7 +276,7 @@ function renderDashboard() {
   const tdee   = calcTDEE(bmr, activite);
   const cibles = calcTargetCals(tdee, objectif);
   const macros = calcMacros(cibles, poids, objectif);
-  const programme = buildProgramme(objectif, jours);
+  const programme = getCustomProgramme();
 
   const splitNames = {
     perte:   {2:'Full Body 2×',3:'Full Body 3×',4:'Full Body 3× + Cardio',5:'Full Body 3× + Cardio 2×',6:'Full Body 4× + Cardio 2×'},
@@ -262,25 +304,33 @@ function renderDashboard() {
   // ── Grille semaine (7 colonnes)
   document.getElementById('week-grid').innerHTML = programme.map((day, i) => {
     const isToday = i === todayIdx;
-    const exHTML = day.exercices.map(ex => `
+    const exHTML = day.exercices.map(ex => {
+      const isSwapped = !!state.exerciseSwaps[ex.nom] || Object.values(state.exerciseSwaps).some(s => s.nom === ex.nom);
+      return `
       <div class="exercise-item">
         <div style="flex:1;min-width:0">
-          <div class="exercise-name">${ex.nom}</div>
+          <div class="exercise-name">${ex.nom}${isSwapped ? ' <span style="color:#f97316;font-size:9px">●</span>' : ''}</div>
           ${ex.muscle ? `<div style="font-size:10px;color:#6b7280;margin-top:1px">${ex.muscle}</div>` : ''}
         </div>
-        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
           <span class="exercise-sets" style="font-size:11px">${ex.sets}</span>
-          <button class="demo-btn" onclick="openDemo('${ex.nom.replace(/'/g,"\\'")}')">▶</button>
+          <button class="demo-btn" onclick="openDemo('${ex.nom.replace(/'/g,"\\'")}')" title="Démo">▶</button>
+          ${ex.muscle ? `<button class="demo-btn swap-btn" onclick="openSwapEx('${ex.nom.replace(/'/g,"\\'")}')" title="Remplacer">✎</button>` : ''}
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
 
     const headerBg = isToday ? 'background:rgba(249,115,22,0.2);border-bottom:2px solid #f97316'
       : day.type === 'cardio' ? 'background:rgba(20,184,166,0.08)' : day.type === 'rest' ? 'background:#0d1117' : 'background:rgba(249,115,22,0.06)';
+    const isSwappedDay = state.daySwaps[i] !== i;
 
     return `
       <div class="day-card${isToday ? ' today-highlight' : ''}${day.type === 'rest' && !isToday ? ' rest-day' : ''}">
         <div class="day-header" style="${headerBg}">
-          <span class="day-name">${day.jour.slice(0,3)}</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
+            <span class="day-name">${day.jour.slice(0,3)}${isSwappedDay ? ' <span style="color:#f97316;font-size:9px">●</span>' : ''}</span>
+            <button class="swap-day-btn" onclick="openSwapDay(${i})" title="Échanger ce jour">⇄</button>
+          </div>
           <span class="day-type ${day.type}">${day.type === 'rest' ? 'Repos' : day.label.split('—')[0].split('(')[0].trim()}</span>
         </div>
         <div class="exercise-list">
@@ -442,7 +492,121 @@ function closeModal() {
   document.body.style.overflow = '';
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeRestModal(); } });
+// ═══ Swap Exercice ═══════════════════════════════════
+let _swapExTarget = null;
+const MUSCLE_GROUPS = {
+  pec:'Pectoraux', dos:'Dos', epaules:'Épaules',
+  biceps:'Biceps', triceps:'Triceps',
+  jambesQ:'Jambes — Quadriceps', jambesI:'Jambes — Ischio / Fessiers',
+  cardio:'Cardio',
+};
+
+function openSwapEx(exName) {
+  _swapExTarget = exName;
+  const list = document.getElementById('swap-ex-list');
+  const current = state.exerciseSwaps[exName];
+  const currentNom = current?.nom ?? exName;
+
+  document.getElementById('swap-ex-current').textContent = current
+    ? `Actuel : ${current.nom}  ·  Original : ${exName}`
+    : `Original : ${exName}`;
+
+  list.innerHTML = Object.entries(EX).map(([key, exs]) => `
+    <div class="swap-group">
+      <div class="swap-group-title">${MUSCLE_GROUPS[key] ?? key}</div>
+      ${exs.map(ex => {
+        const active = ex.nom === currentNom;
+        const safe   = ex.nom.replace(/'/g, "\\'");
+        return `
+          <button class="swap-option${active ? ' active' : ''}" onclick="applyExSwap('${safe}','${key}')">
+            <span class="swap-option-name">${ex.nom}</span>
+            <span class="swap-option-meta">${ex.sets}</span>
+          </button>`;
+      }).join('')}
+    </div>
+  `).join('');
+
+  document.getElementById('swap-ex-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function applyExSwap(newName, group) {
+  if (!_swapExTarget) return;
+  const newEx = EX[group]?.find(e => e.nom === newName);
+  if (!newEx) return;
+  if (newEx.nom === _swapExTarget) delete state.exerciseSwaps[_swapExTarget];
+  else                              state.exerciseSwaps[_swapExTarget] = newEx;
+  saveCustomizations();
+  renderDashboard();
+  closeSwapExModal();
+  showToast('✓ Exercice mis à jour');
+}
+function resetExSwap() {
+  if (!_swapExTarget) return;
+  delete state.exerciseSwaps[_swapExTarget];
+  saveCustomizations();
+  renderDashboard();
+  closeSwapExModal();
+  showToast('✓ Original restauré');
+}
+function closeSwapExModal() {
+  document.getElementById('swap-ex-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+  _swapExTarget = null;
+}
+
+// ═══ Swap Jour ═══════════════════════════════════════
+let _swapDaySlot = null;
+function openSwapDay(slotIdx) {
+  _swapDaySlot = slotIdx;
+  const list = document.getElementById('swap-day-list');
+  const programme = getCustomProgramme();
+
+  document.getElementById('swap-day-current').textContent =
+    `${D[slotIdx]} — ${programme[slotIdx]?.type === 'rest' ? 'Repos' : programme[slotIdx]?.label ?? ''}`;
+
+  list.innerHTML = programme.map((day, i) => {
+    if (i === slotIdx) return '';
+    const label = day.type === 'rest' ? 'Repos' : day.label;
+    return `
+      <button class="swap-day-option" onclick="applyDaySwap(${slotIdx}, ${i})">
+        <span class="swap-day-name">${D[i]}</span>
+        <span class="swap-day-label">${label}</span>
+      </button>`;
+  }).filter(Boolean).join('');
+
+  document.getElementById('swap-day-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function applyDaySwap(a, b) {
+  const next = [...state.daySwaps];
+  [next[a], next[b]] = [next[b], next[a]];
+  state.daySwaps = next;
+  saveCustomizations();
+  renderDashboard();
+  closeSwapDayModal();
+  showToast(`✓ ${D[a]} ↔ ${D[b]}`);
+}
+function resetDaySwaps() {
+  state.daySwaps = [0, 1, 2, 3, 4, 5, 6];
+  saveCustomizations();
+  renderDashboard();
+  closeSwapDayModal();
+  showToast('✓ Ordre des jours réinitialisé');
+}
+function closeSwapDayModal() {
+  document.getElementById('swap-day-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+  _swapDaySlot = null;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeModal();
+    closeRestModal();
+    closeSwapExModal();
+    closeSwapDayModal();
+  }
+});
 
 // ── Utils ─────────────────────────────────────────
 function printPage() { window.print(); }

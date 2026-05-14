@@ -338,6 +338,124 @@ select option { background: #1f2937; }
   z-index: 100; white-space: nowrap;
 }
 
+/* ===== Swap buttons ===== */
+.swap-day-btn {
+  background: transparent; border: none; color: #6b7280;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  padding: 2px 8px; border-radius: 6px; transition: all 0.2s;
+  line-height: 1;
+}
+.swap-day-btn:hover { background: rgba(249,115,22,.15); color: #f97316; }
+.swap-btn { background: #111827; color: #6b7280; }
+.swap-btn:hover { background: #f97316; border-color: #f97316; color: white; }
+
+/* ===== Swap modal lists ===== */
+.swap-group { margin-bottom: 14px; }
+.swap-group-title {
+  font-size: 11px; font-weight: 700; color: #6b7280;
+  text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px;
+}
+.swap-option {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  width: 100%; padding: 10px 12px; margin-bottom: 4px;
+  background: #1f2937; border: 1px solid #374151; border-radius: 8px;
+  color: #d1d5db; cursor: pointer; transition: all .2s;
+  text-align: left;
+}
+.swap-option:hover { border-color: #f97316; background: rgba(249,115,22,.08); }
+.swap-option.active { border-color: #f97316; background: rgba(249,115,22,.15); color: #fb923c; }
+.swap-option-name { font-size: 13px; font-weight: 600; }
+.swap-option-meta { font-size: 11px; color: #f97316; font-weight: 700; flex-shrink: 0; }
+
+.swap-day-option {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  width: 100%; padding: 12px 14px; margin-bottom: 8px;
+  background: #1f2937; border: 1px solid #374151; border-radius: 10px;
+  color: #d1d5db; cursor: pointer; transition: all .2s;
+}
+.swap-day-option:hover { border-color: #f97316; background: rgba(249,115,22,.08); }
+.swap-day-name  { font-weight: 700; color: white; font-size: 14px; }
+.swap-day-label { font-size: 12px; color: #9ca3af; text-align: right; }
+
+/* ===================================================
+   MOBILE — Optimisations pour smartphones & zoom
+   =================================================== */
+@media (max-width: 768px) {
+  .app-container { padding-left: 14px; padding-right: 14px; }
+  .card { padding: 18px; border-radius: 12px; }
+  main.app-container { padding-top: 24px; padding-bottom: 24px; }
+}
+
+@media (max-width: 640px) {
+  /* Header */
+  .user-email { display: none; }
+  .nav-btn { padding: 6px 10px; font-size: 12px; }
+  header .app-container { padding-top: 10px; padding-bottom: 10px; }
+
+  /* Cards & banner */
+  .card { padding: 16px; }
+  .today-banner { padding: 18px; flex-direction: column; align-items: stretch; }
+  .today-day { font-size: 18px; }
+  .today-btn { padding: 11px 18px; font-size: 14px; width: 100%; }
+
+  /* Today banner buttons */
+  .btn-log { width: 100%; text-align: center; }
+
+  /* Onboarding */
+  .step-dot { width: 30px; height: 30px; font-size: 12px; }
+  .objectif-card { padding: 18px 14px; }
+  .objectif-icon { font-size: 28px; margin-bottom: 8px; }
+  .objectif-card h3 { font-size: 14px; }
+  .objectif-card p { font-size: 12px; }
+
+  /* Buttons */
+  .btn-primary, .btn-secondary { padding: 11px 20px; font-size: 14px; }
+  .days-btn { width: 48px; height: 42px; font-size: 14px; }
+
+  /* Inputs */
+  .input-with-unit input { padding: 11px 14px; font-size: 14px; }
+  select { padding: 11px 14px; font-size: 14px; }
+
+  /* Modals */
+  .modal-card { padding: 20px; max-height: 92vh; }
+  .modal-title { font-size: 16px; }
+  .modal-yt-btn { padding: 11px; font-size: 13px; }
+  .rest-session-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* Day cards — boutons plus accessibles */
+  .demo-btn { width: 28px; height: 28px; font-size: 11px; }
+  .swap-day-btn { padding: 4px 10px; font-size: 16px; }
+  .exercise-item { padding: 8px 0; }
+  .exercise-name { font-size: 12px; }
+
+  /* Profile */
+  .profile-row { padding: 10px 0; font-size: 13px; }
+
+  /* Historique */
+  .history-date { min-width: 70px; font-size: 11px; }
+  .history-label { font-size: 12px; }
+
+  /* Session logging */
+  .set-row { flex-wrap: wrap; gap: 6px; }
+  .set-num { width: 100%; margin-bottom: 4px; }
+}
+
+@media (max-width: 380px) {
+  .app-container { padding-left: 10px; padding-right: 10px; }
+  .card { padding: 14px; border-radius: 10px; }
+  .modal-card { padding: 16px; }
+  .objectif-card { padding: 14px 10px; }
+  .today-day { font-size: 16px; }
+  .step-line { max-width: 60px; }
+  .days-btn { width: 44px; height: 40px; }
+}
+
+/* Touch-friendly : agrandit la zone tactile sur écrans tactiles */
+@media (hover: none) and (pointer: coarse) {
+  .demo-btn, .swap-btn { min-width: 30px; min-height: 30px; }
+  .nav-btn { min-height: 36px; }
+}
+
 /* ===== Print ===== */
 @media print {
   header, footer, .btn-primary, .btn-secondary, .btn-log, .today-btn { display: none !important; }
