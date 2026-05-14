@@ -9,14 +9,18 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 let currentUser          = null;
 let activeSession        = null;
 let _expectSignedOut     = false;
-let _profileLoadRunning  = false; // évite les doubles appels loadProfile()
+let _profileLoadRunning  = false;
+
+// Si l'URL contient #dashboard ou #profile, l'utilisateur était connecté :
+// on cache l'onboarding immédiatement pour éviter le flash pendant que
+// onAuthStateChange + loadProfile() s'exécutent (appel réseau async).
+if (location.hash === '#dashboard' || location.hash === '#profile') {
+  document.getElementById('view-onboarding')?.classList.add('hidden');
+}
 
 // ── Auth state ────────────────────────────────────
 sb.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_OUT') {
-    // signOut() a déjà réinitialisé l'UI de façon synchrone —
-    // si l'utilisateur s'est reconnecté depuis, currentUser est déjà
-    // le nouveau compte. On vide juste le flag et on ne fait rien d'autre.
     _expectSignedOut = false;
     return;
   }
@@ -24,18 +28,13 @@ sb.auth.onAuthStateChange(async (event, session) => {
   currentUser = session?.user ?? null;
   renderAuthHeader();
 
-  if (event === 'INITIAL_SESSION') {
-    if (currentUser) {
-      await loadProfile();
-    } else {
-      showView('onboarding');
-    }
-  } else if (event === 'SIGNED_IN') {
-    // Supabase fire SIGNED_IN à la fois sur login ET sur restauration de session
-    // au refresh — on ignore si loadProfile() est déjà en cours ou terminé
-    if (!_profileLoadRunning) await loadProfile();
+  if (currentUser && !state.objectif && !_profileLoadRunning) {
+    // On a un user authentifié et le profil n'est pas encore chargé :
+    // couvre INITIAL_SESSION, SIGNED_IN et TOKEN_REFRESHED (JWT expiré au refresh)
+    await loadProfile();
+  } else if (!currentUser && event === 'INITIAL_SESSION') {
+    showView('onboarding');
   }
-  // TOKEN_REFRESHED / USER_UPDATED : pas de re-routing
 });
 
 // ── Reset UI state ────────────────────────────────

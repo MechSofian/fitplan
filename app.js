@@ -24,6 +24,10 @@ function showView(name) {
     navProf.classList.toggle('active', name === 'profile');
   }
 
+  if (name === 'dashboard') history.replaceState(null, '', '#dashboard');
+  else if (name === 'profile') history.replaceState(null, '', '#profile');
+  else history.replaceState(null, '', location.pathname);
+
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
