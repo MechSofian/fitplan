@@ -119,6 +119,59 @@ function calcEst1RM(weight, reps) {
   return weight / (1.0278 - 0.0278 * r);
 }
 let _personalRecords = {};   // { 'Exo': {maxWeight, maxReps, maxVolume, est1RM, date} }
+let _prOverrides    = {};    // overrides manuels (localStorage)
+
+// ═══ SVG line chart générique ══════════════════════
+// points: [{x: number, y: number}]  (ex: timestamps / valeurs)
+function renderLineChart(points, opts = {}) {
+  const W = opts.width  ?? 320;
+  const H = opts.height ?? 100;
+  const pad = { t: 14, r: 14, b: 22, l: 36 };
+  const color = opts.color ?? '#f97316';
+  if (!points || points.length === 0) return `<div class="chart-empty">Pas encore de données</div>`;
+  if (points.length === 1) {
+    const p = points[0];
+    return `<div class="chart-single"><span class="chart-single-val">${p.y}</span><span class="chart-single-lab">${opts.unit ?? ''}</span></div>`;
+  }
+  const xs = points.map(p => p.x);
+  const ys = points.map(p => p.y);
+  const xMin = Math.min(...xs), xMax = Math.max(...xs);
+  const yMin = Math.min(...ys), yMax = Math.max(...ys);
+  const yRange = yMax - yMin || 1;
+  const xRange = xMax - xMin || 1;
+  const innerW = W - pad.l - pad.r;
+  const innerH = H - pad.t - pad.b;
+  const sx = x => pad.l + ((x - xMin) / xRange) * innerW;
+  const sy = y => pad.t + (1 - (y - yMin) / yRange) * innerH;
+
+  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${sx(p.x).toFixed(1)} ${sy(p.y).toFixed(1)}`).join(' ');
+  const area = `${path} L ${sx(points[points.length-1].x).toFixed(1)} ${pad.t + innerH} L ${sx(points[0].x).toFixed(1)} ${pad.t + innerH} Z`;
+
+  const dots = points.map(p => `<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="3" fill="${color}" stroke="#111827" stroke-width="1.5"/>`).join('');
+
+  // Labels y (min/max)
+  const yMinLbl = `<text x="${pad.l - 6}" y="${pad.t + innerH}" text-anchor="end" dy="3" fill="#6b7280" font-size="10">${yMin.toFixed(yRange < 5 ? 1 : 0)}</text>`;
+  const yMaxLbl = `<text x="${pad.l - 6}" y="${pad.t}"          text-anchor="end" dy="3" fill="#6b7280" font-size="10">${yMax.toFixed(yRange < 5 ? 1 : 0)}</text>`;
+
+  // Labels x (dates min/max)
+  const fmtX = ts => new Date(ts).toLocaleDateString('fr-FR', { day:'numeric', month:'short' });
+  const xMinLbl = `<text x="${pad.l}"          y="${H - 6}" fill="#6b7280" font-size="10">${fmtX(xMin)}</text>`;
+  const xMaxLbl = `<text x="${pad.l + innerW}" y="${H - 6}" text-anchor="end" fill="#6b7280" font-size="10">${fmtX(xMax)}</text>`;
+
+  return `
+    <svg class="line-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:${H}px">
+      <defs>
+        <linearGradient id="chart-grad-${color.replace('#','')}" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%"   stop-color="${color}" stop-opacity=".25"/>
+          <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d="${area}" fill="url(#chart-grad-${color.replace('#','')})" stroke="none"/>
+      <path d="${path}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      ${dots}
+      ${yMinLbl}${yMaxLbl}${xMinLbl}${xMaxLbl}
+    </svg>`;
+}
 
 // ═══ Streak / Consistance ═══════════════════════════
 let _currentStreak = { weeks: 0, thisWeek: 0 };
@@ -152,6 +205,7 @@ function loadCustomizations() {
     if (data.exerciseSwaps && typeof data.exerciseSwaps === 'object') state.exerciseSwaps = data.exerciseSwaps;
     if (Array.isArray(data.daySwaps) && data.daySwaps.length === 7)   state.daySwaps     = data.daySwaps;
     if (Array.isArray(data.customExercises))                          state.customExercises = data.customExercises;
+    if (data.prOverrides && typeof data.prOverrides === 'object')     _prOverrides = data.prOverrides;
   } catch {}
 }
 function saveCustomizations() {
@@ -160,6 +214,7 @@ function saveCustomizations() {
       exerciseSwaps:   state.exerciseSwaps,
       daySwaps:        state.daySwaps,
       customExercises: state.customExercises,
+      prOverrides:     _prOverrides,
     }));
   } catch {}
 }
@@ -904,6 +959,75 @@ function deleteCustomExercise(idx) {
   if (_swapExTarget) openSwapEx(_swapExTarget);
 }
 
+// ═══ Édition manuelle d'un PR ════════════════════════
+let _editingPRName = null;
+
+function openEditPR(name) {
+  _editingPRName = name;
+  document.getElementById('edit-pr-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+
+  // Si name === null → mode "ajouter", sinon mode "modifier"
+  const merged = (typeof getMergedPRs === 'function') ? getMergedPRs() : {};
+  const r = name ? merged[name] : null;
+  const override = name ? (_prOverrides[name] || {}) : {};
+
+  document.getElementById('edit-pr-title').textContent = name ? 'Modifier le record' : 'Ajouter un record';
+  const nomEl = document.getElementById('edit-pr-nom');
+  nomEl.value = name || '';
+  nomEl.disabled = !!name;
+
+  document.getElementById('edit-pr-weight').value = override.maxWeight ?? r?.maxWeight ?? '';
+  document.getElementById('edit-pr-reps').value   = override.maxReps   ?? r?.maxReps   ?? '';
+  document.getElementById('edit-pr-error').classList.add('hidden');
+
+  // Bouton "Restaurer auto" visible uniquement si override existe
+  const resetBtn = document.getElementById('edit-pr-reset');
+  resetBtn.style.display = (name && _prOverrides[name]) ? '' : 'none';
+
+  updateEditPR1RM();
+}
+function closeEditPRModal() {
+  document.getElementById('edit-pr-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+  _editingPRName = null;
+}
+function updateEditPR1RM() {
+  const w = parseFloat(document.getElementById('edit-pr-weight').value);
+  const r = parseFloat(document.getElementById('edit-pr-reps').value);
+  const est = (w && r) ? Math.round(calcEst1RM(w, r)) : 0;
+  document.getElementById('edit-pr-1rm').textContent = est ? `${est} kg` : '—';
+}
+function saveEditPR() {
+  const nom    = document.getElementById('edit-pr-nom').value.trim();
+  const weight = parseFloat(document.getElementById('edit-pr-weight').value);
+  const reps   = parseInt(document.getElementById('edit-pr-reps').value);
+  const err    = document.getElementById('edit-pr-error');
+
+  if (!nom)            { err.textContent = 'Nom requis.';        err.classList.remove('hidden'); return; }
+  if (!weight || weight <= 0) { err.textContent = 'Poids requis (> 0).'; err.classList.remove('hidden'); return; }
+  if (!reps || reps <= 0)     { err.textContent = 'Reps requis (> 0).';  err.classList.remove('hidden'); return; }
+
+  _prOverrides[nom] = {
+    maxWeight: weight,
+    maxReps:   reps,
+    date:      new Date().toISOString(),
+  };
+  saveCustomizations();
+  renderPRs();
+  closeEditPRModal();
+  showToast('✓ Record mis à jour');
+}
+function resetPROverride() {
+  if (!_editingPRName) return;
+  if (!confirm(`Restaurer la valeur calculée automatiquement pour "${_editingPRName}" ?`)) return;
+  delete _prOverrides[_editingPRName];
+  saveCustomizations();
+  renderPRs();
+  closeEditPRModal();
+  showToast('✓ Record auto restauré');
+}
+
 // ═══ Création d'un exercice perso ═══════════════════
 function openCreateExModal() {
   document.getElementById('create-ex-modal').classList.remove('hidden');
@@ -1014,6 +1138,8 @@ document.addEventListener('keydown', e => {
     closeSwapDayModal();
     closeSessionDetail();
     closeCreateExModal();
+    closeEditPRModal();
+    closeBodyWeightModal();
   }
 });
 

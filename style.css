@@ -440,6 +440,93 @@ select option { background: #1f2937; }
   .pr-vals { width: 100%; justify-content: space-between; }
 }
 
+/* ===== Notes de séance ===== */
+.session-notes-block { margin-top: 18px; padding-top: 14px; border-top: 1px solid #1f2937; }
+.session-notes-label {
+  display: block; font-size: 12px; font-weight: 700;
+  color: #9ca3af; text-transform: uppercase; letter-spacing: .05em;
+  margin-bottom: 6px;
+}
+.session-notes-textarea {
+  width: 100%; min-height: 60px; resize: vertical;
+  background: #1f2937; border: 1px solid #374151; border-radius: 10px;
+  color: white; padding: 10px 14px; font-size: 14px;
+  font-family: inherit; outline: none; transition: border-color 0.2s;
+}
+.session-notes-textarea:focus { border-color: #f97316; }
+
+.detail-notes-view {
+  display: flex; gap: 10px; align-items: flex-start;
+  background: rgba(165,180,252,.06); border-left: 3px solid #a5b4fc;
+  border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;
+}
+.detail-notes-icon { font-size: 16px; line-height: 1.4; }
+.detail-notes-text { font-size: 13px; color: #d1d5db; line-height: 1.5; white-space: pre-wrap; flex: 1; }
+.detail-notes-edit { margin-bottom: 14px; }
+
+.history-note-icon { margin-right: 6px; font-size: 12px; }
+
+/* ===== SVG charts ===== */
+.line-chart { display: block; width: 100%; }
+.chart-empty { padding: 14px; text-align: center; color: #6b7280; font-size: 12px; }
+.chart-single { display: flex; align-items: baseline; gap: 6px; justify-content: center; padding: 14px; }
+.chart-single-val { font-size: 28px; font-weight: 800; color: #f97316; }
+.chart-single-lab { font-size: 13px; color: #9ca3af; }
+.chart-title {
+  font-size: 11px; font-weight: 700; color: #6b7280;
+  text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px;
+}
+.detail-mini-chart { background: rgba(249,115,22,.04); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+
+/* ===== Body weight card ===== */
+.bw-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+.bw-current { display: flex; align-items: baseline; gap: 4px; }
+.bw-val  { font-size: 36px; font-weight: 900; color: white; line-height: 1; }
+.bw-unit { font-size: 15px; color: #9ca3af; font-weight: 600; }
+.bw-delta { margin-left: 10px; font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 20px; background: #1f2937; color: #9ca3af; }
+.bw-delta.up   { background: rgba(220,38,38,.15);  color: #f87171; }
+.bw-delta.down { background: rgba(22,163,74,.15);  color: #4ade80; }
+.bw-date { font-size: 11px; color: #6b7280; margin-bottom: 14px; }
+.bw-chart { margin: 12px 0 8px; }
+.bw-list-toggle {
+  font-size: 12px; color: #f97316; cursor: pointer;
+  text-align: center; padding: 8px; font-weight: 600;
+  border-top: 1px solid #1f2937; margin-top: 8px;
+}
+.bw-list-toggle:hover { color: #fb923c; }
+.bw-list { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; max-height: 220px; overflow-y: auto; }
+.bw-list-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 12px; background: #1a2035; border-radius: 6px;
+  font-size: 13px; color: #d1d5db;
+}
+.bw-list-item span:first-child { flex: 1; color: #9ca3af; }
+.bw-rm-btn {
+  background: transparent; border: 1px solid #374151; color: #6b7280;
+  width: 24px; height: 24px; border-radius: 50%;
+  font-size: 11px; cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center;
+}
+.bw-rm-btn:hover { background: rgba(220,38,38,.15); border-color: #dc2626; color: #f87171; }
+
+/* ===== PR edit / add ===== */
+.pr-add-btn {
+  display: block; width: 100%; padding: 10px;
+  background: rgba(249,115,22,.08); border: 1.5px dashed rgba(249,115,22,.4);
+  color: #fb923c; font-weight: 700; font-size: 13px; cursor: pointer;
+  border-radius: 10px; margin-bottom: 12px;
+  transition: all 0.2s;
+}
+.pr-add-btn:hover { background: rgba(249,115,22,.15); border-color: #f97316; }
+.pr-edit-btn {
+  background: transparent; border: 1px solid #374151; color: #9ca3af;
+  width: 28px; height: 28px; border-radius: 50%;
+  font-size: 12px; cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.pr-edit-btn:hover { border-color: #f97316; color: #f97316; }
+.pr-override-badge { font-size: 11px; margin-left: 4px; opacity: 0.7; }
+
 /* ===== Toast ===== */
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);

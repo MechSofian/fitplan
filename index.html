@@ -9,7 +9,7 @@
   <title>FitPlan — Programme Personnalisé</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="stylesheet" href="style.css?v=19" />
+  <link rel="stylesheet" href="style.css?v=20" />
   <script>
     tailwind.config = {
       theme: { extend: { colors: { brand: { 500: '#f97316', 600: '#ea580c' } } } }
@@ -271,6 +271,12 @@
 
       </div>
 
+      <!-- Suivi du poids corporel -->
+      <div class="card mb-6">
+        <h2 class="text-lg font-bold mb-4 flex items-center gap-2"><span>⚖️</span> Évolution du poids corporel</h2>
+        <div id="profile-bodyweight"></div>
+      </div>
+
       <!-- Records personnels -->
       <div class="card mb-6">
         <h2 class="text-lg font-bold mb-4 flex items-center gap-2"><span>🏆</span> Tes records personnels</h2>
@@ -345,6 +351,72 @@
     </div>
   </div>
 
+  <!-- Pèse-toi -->
+  <div id="bw-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeBodyWeightModal()"></div>
+    <div class="modal-card" style="max-width:400px">
+      <button class="modal-close" onclick="closeBodyWeightModal()">✕</button>
+      <h3 class="modal-title">⚖️ Pèse-toi</h3>
+      <div class="field-group mb-4">
+        <label>Poids</label>
+        <div class="input-with-unit" style="margin-top:6px">
+          <input type="number" id="bw-input" min="30" max="250" step="0.1" placeholder="75.5" style="padding:12px 16px"/>
+          <span>kg</span>
+        </div>
+      </div>
+      <div class="field-group mb-4">
+        <label>Date <span style="color:#6b7280;font-weight:400">(défaut : aujourd'hui)</span></label>
+        <div class="input-with-unit" style="margin-top:6px">
+          <input type="date" id="bw-date" style="padding:12px 16px"/>
+        </div>
+      </div>
+      <div id="bw-error" class="hidden mb-4 text-red-400 text-sm bg-red-900/30 px-4 py-2 rounded-lg"></div>
+      <div class="flex gap-2">
+        <button class="btn-secondary" style="flex:1" onclick="closeBodyWeightModal()">Annuler</button>
+        <button class="btn-primary"   style="flex:1" onclick="saveBodyWeight()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Édition / ajout PR -->
+  <div id="edit-pr-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeEditPRModal()"></div>
+    <div class="modal-card" style="max-width:420px">
+      <button class="modal-close" onclick="closeEditPRModal()">✕</button>
+      <h3 id="edit-pr-title" class="modal-title">Modifier le record</h3>
+      <div class="field-group mb-4">
+        <label>Exercice</label>
+        <div class="input-with-unit" style="margin-top:6px"><input type="text" id="edit-pr-nom" placeholder="ex: Développé couché" style="padding:12px 16px"/></div>
+      </div>
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div class="field-group">
+          <label>Poids max</label>
+          <div class="input-with-unit" style="margin-top:6px">
+            <input type="number" id="edit-pr-weight" min="0" step="0.5" placeholder="80" style="padding:12px 16px" oninput="updateEditPR1RM()"/>
+            <span>kg</span>
+          </div>
+        </div>
+        <div class="field-group">
+          <label>Reps</label>
+          <div class="input-with-unit" style="margin-top:6px">
+            <input type="number" id="edit-pr-reps" min="1" placeholder="5" style="padding:12px 16px" oninput="updateEditPR1RM()"/>
+            <span>rép</span>
+          </div>
+        </div>
+      </div>
+      <div style="background:rgba(249,115,22,.08);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;color:#9ca3af;font-weight:600">1RM estimé (Brzycki)</span>
+        <span id="edit-pr-1rm" style="font-size:18px;font-weight:800;color:#fb923c">—</span>
+      </div>
+      <div id="edit-pr-error" class="hidden mb-4 text-red-400 text-sm bg-red-900/30 px-4 py-2 rounded-lg"></div>
+      <div class="flex gap-2">
+        <button class="btn-secondary" id="edit-pr-reset" onclick="resetPROverride()" style="display:none">↺ Auto</button>
+        <button class="btn-secondary" style="flex:1" onclick="closeEditPRModal()">Annuler</button>
+        <button class="btn-primary"   style="flex:1" onclick="saveEditPR()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Créer un exercice perso -->
   <div id="create-ex-modal" class="modal hidden">
     <div class="modal-overlay" onclick="closeCreateExModal()"></div>
@@ -409,7 +481,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=19"></script>
-  <script src="auth.js?v=19"></script>
+  <script src="app.js?v=20"></script>
+  <script src="auth.js?v=20"></script>
 </body>
 </html>

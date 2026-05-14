@@ -284,10 +284,11 @@ async function loadProfile() {
     document.querySelectorAll('.niveau-btn').forEach(b => b.classList.toggle('active', b.dataset.niveau === state.niveau));
 
     // Chargement parallèle des données dérivées avant le 1er render
-    await Promise.all([loadStreak(), loadPRs()]);
+    await Promise.all([loadStreak(), loadPRs(), loadBodyWeights()]);
 
     renderDashboard();
     renderProfile();
+    renderBodyWeightCard();
     document.getElementById('main-nav').classList.remove('hidden');
     showView('dashboard');
     loadHistory();
@@ -461,6 +462,14 @@ function renderActiveSession() {
     document.getElementById('session-log').innerHTML =
       '<p style="text-align:center;color:#6b7280;padding:20px 0;font-size:14px">Tous les exercices ont été retirés. Annule ou enregistre une séance vide.</p>';
   }
+
+  // Champ notes en bas
+  const notesHtml = `
+    <div class="session-notes-block">
+      <label class="session-notes-label">📝 Notes <span style="color:#6b7280;font-weight:400">(sensations, douleurs, énergie…)</span></label>
+      <textarea class="session-notes-textarea" placeholder="Ex: super forme, +5kg au bench…" oninput="activeSession.notes = this.value">${activeSession.notes ?? ''}</textarea>
+    </div>`;
+  document.getElementById('session-log').insertAdjacentHTML('beforeend', notesHtml);
 }
 
 function removeSessionExercise(idx) {
@@ -532,11 +541,13 @@ async function saveSession() {
   if (!activeSession) { showToast('⚠️ Aucune séance active'); return; }
 
   try {
+    const notes = activeSession.notes?.trim() || null;
     const { data: session, error } = await sb.from('sessions').insert({
       user_id: currentUser.id,
       objectif: state.objectif,
       jours: state.jours,
       label: activeSession.label,
+      notes,
     }).select().single();
 
     if (error) throw error;
@@ -619,28 +630,194 @@ async function loadPRs() {
   }
 }
 
+// Fusionne records calculés + overrides manuels (max des deux par champ)
+function getMergedPRs() {
+  const out = {};
+  const allNames = new Set([...Object.keys(_personalRecords), ...Object.keys(_prOverrides)]);
+  for (const name of allNames) {
+    const c = _personalRecords[name] || {};
+    const o = _prOverrides[name]    || {};
+    const maxWeight = Math.max(c.maxWeight || 0, o.maxWeight || 0);
+    let maxReps    = c.maxReps  || 0;
+    let est1RM     = c.est1RM   || 0;
+    let date       = c.date     || null;
+    // Si l'override a un poids supérieur, ses reps et date prennent le dessus
+    if ((o.maxWeight || 0) > (c.maxWeight || 0)) {
+      maxReps = o.maxReps || maxReps;
+      date    = o.date    || date;
+    }
+    // 1RM : max entre calculé et override (recalcule depuis l'override si fourni)
+    if (o.maxWeight && o.maxReps) {
+      const oEst = calcEst1RM(o.maxWeight, o.maxReps);
+      if (oEst > est1RM) est1RM = oEst;
+    }
+    out[name] = { maxWeight, maxReps, est1RM, date, hasOverride: !!_prOverrides[name] };
+  }
+  return out;
+}
+
 function renderPRs() {
   const el = document.getElementById('profile-prs');
   if (!el) return;
-  const records = Object.entries(_personalRecords)
+  const merged  = getMergedPRs();
+  const records = Object.entries(merged)
     .filter(([, r]) => r.maxWeight > 0)
     .sort((a, b) => b[1].est1RM - a[1].est1RM);
+
+  const addBtn = `<button class="pr-add-btn" onclick="openEditPR(null)">＋ Ajouter un record</button>`;
+
   if (!records.length) {
-    el.innerHTML = '<p style="color:#6b7280;font-size:13px;padding:8px 0">Enregistre des séances pour voir tes records.</p>';
+    el.innerHTML = `${addBtn}<p style="color:#6b7280;font-size:13px;padding:12px 0">Aucun record pour l'instant. Enregistre des séances ou ajoute un record manuellement.</p>`;
     return;
   }
-  el.innerHTML = records.map(([name, r]) => {
+  el.innerHTML = addBtn + records.map(([name, r]) => {
     const dateStr = r.date ? new Date(r.date).toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'2-digit' }) : '';
+    const badge = r.hasOverride ? '<span class="pr-override-badge" title="Modifié manuellement">✏️</span>' : '';
+    const safeName = name.replace(/'/g, "\\'");
     return `
       <div class="pr-row">
-        <div class="pr-name">${name}</div>
+        <div class="pr-name">${name} ${badge}</div>
         <div class="pr-vals">
           <span class="pr-val"><span class="pr-lab">Max</span>${r.maxWeight} kg × ${r.maxReps}</span>
           <span class="pr-val"><span class="pr-lab">1RM est.</span>${Math.round(r.est1RM)} kg</span>
           ${dateStr ? `<span class="pr-date">${dateStr}</span>` : ''}
+          <button class="pr-edit-btn" onclick="openEditPR('${safeName}')" title="Modifier">✏️</button>
         </div>
       </div>`;
   }).join('');
+}
+
+// ── Suivi du poids corporel ───────────────────────
+let _bodyWeights = []; // [{id, weight, measured_at}, ...] desc par date
+
+async function loadBodyWeights() {
+  if (!currentUser) { _bodyWeights = []; return; }
+  try {
+    const { data, error } = await sb.from('body_weights')
+      .select('id, weight, measured_at')
+      .eq('user_id', currentUser.id)
+      .order('measured_at', { ascending: false })
+      .limit(60);
+    if (error) throw error;
+    _bodyWeights = data || [];
+  } catch (e) {
+    console.error('[FitPlan] loadBodyWeights:', e);
+    _bodyWeights = [];
+  }
+}
+
+function renderBodyWeightCard() {
+  const el = document.getElementById('profile-bodyweight');
+  if (!el) return;
+
+  const latest  = _bodyWeights[0];
+  const oldest  = _bodyWeights[_bodyWeights.length - 1];
+  const delta   = (latest && oldest && latest.id !== oldest.id) ? (latest.weight - oldest.weight) : null;
+  const deltaStr = delta !== null
+    ? `<span class="bw-delta ${delta > 0 ? 'up' : delta < 0 ? 'down' : ''}">${delta > 0 ? '+' : ''}${delta.toFixed(1)} kg</span>`
+    : '';
+
+  const currentW = latest?.weight ?? state.poids;
+  const dateStr = latest ? new Date(latest.measured_at).toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'2-digit' }) : '';
+
+  // Chart : points triés chronologiquement
+  const points = [..._bodyWeights]
+    .reverse()
+    .map(b => ({ x: new Date(b.measured_at).getTime(), y: parseFloat(b.weight) }));
+  const chart = renderLineChart(points, { color: '#a5b4fc', height: 110, unit: 'kg' });
+
+  el.innerHTML = `
+    <div class="bw-top">
+      <div class="bw-current">
+        <span class="bw-val">${currentW ?? '—'}</span>
+        <span class="bw-unit">kg</span>
+        ${deltaStr}
+      </div>
+      <button class="btn-primary" onclick="openBodyWeightModal()" style="padding:9px 16px;font-size:13px">＋ Pèse-toi</button>
+    </div>
+    ${dateStr ? `<div class="bw-date">Dernière mesure : ${dateStr}</div>` : ''}
+    <div class="bw-chart">${chart}</div>
+    ${_bodyWeights.length > 1 ? `<div class="bw-list-toggle" onclick="toggleBwList()">Voir historique (${_bodyWeights.length})</div>
+      <div class="bw-list hidden" id="bw-list">${_bodyWeights.map(b => `
+        <div class="bw-list-item">
+          <span>${new Date(b.measured_at).toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'2-digit' })}</span>
+          <span style="font-weight:700">${b.weight} kg</span>
+          <button class="bw-rm-btn" onclick="deleteBodyWeight(${b.id})" title="Supprimer">✕</button>
+        </div>`).join('')}</div>` : ''}`;
+}
+
+function toggleBwList() {
+  document.getElementById('bw-list')?.classList.toggle('hidden');
+}
+
+function openBodyWeightModal() {
+  document.getElementById('bw-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('bw-input').value = state.poids ?? '';
+  document.getElementById('bw-date').value = today;
+  document.getElementById('bw-error').classList.add('hidden');
+  setTimeout(() => document.getElementById('bw-input').focus(), 50);
+}
+function closeBodyWeightModal() {
+  document.getElementById('bw-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+async function saveBodyWeight() {
+  const w    = parseFloat(document.getElementById('bw-input').value);
+  const date = document.getElementById('bw-date').value;
+  const err  = document.getElementById('bw-error');
+  if (!w || w < 30 || w > 250) {
+    err.textContent = 'Poids invalide (30–250 kg).';
+    err.classList.remove('hidden');
+    return;
+  }
+  try {
+    const { error } = await sb.from('body_weights').insert({
+      user_id: currentUser.id,
+      weight: w,
+      measured_at: date ? new Date(date).toISOString() : new Date().toISOString(),
+    });
+    if (error) throw error;
+    // Met à jour state.poids si c'est la mesure la plus récente
+    await loadBodyWeights();
+    const latest = _bodyWeights[0];
+    if (latest && parseFloat(latest.weight) !== state.poids) {
+      state.poids = parseFloat(latest.weight);
+      document.getElementById('poids') && (document.getElementById('poids').value = state.poids);
+      await saveProfile();
+      renderDashboard();
+      renderProfile();
+    }
+    renderBodyWeightCard();
+    closeBodyWeightModal();
+    showToast('✓ Poids enregistré');
+  } catch (e) {
+    console.error('[FitPlan] saveBodyWeight:', e);
+    err.textContent = `Erreur : ${e.message}`;
+    err.classList.remove('hidden');
+  }
+}
+async function deleteBodyWeight(id) {
+  if (!confirm('Supprimer cette mesure ?')) return;
+  try {
+    const { error } = await sb.from('body_weights').delete().eq('id', id);
+    if (error) throw error;
+    await loadBodyWeights();
+    // Met à jour state.poids depuis la nouvelle plus récente
+    const latest = _bodyWeights[0];
+    if (latest) {
+      state.poids = parseFloat(latest.weight);
+      await saveProfile();
+      renderDashboard();
+      renderProfile();
+    }
+    renderBodyWeightCard();
+    showToast('✓ Mesure supprimée');
+  } catch (e) {
+    console.error('[FitPlan] deleteBodyWeight:', e);
+    showToast('❌ ' + e.message);
+  }
 }
 
 // ── Streak / Consistance ──────────────────────────
@@ -776,10 +953,11 @@ async function loadHistory() {
     const makeHtml = (list) => list.map(s => {
       const date    = new Date(s.created_at).toLocaleDateString('fr-FR', { weekday:'short', day:'numeric', month:'short' });
       const exCount = s.exercise_logs?.length ?? 0;
+      const noteIcon = s.notes ? '<span class="history-note-icon" title="Note présente">📝</span>' : '';
       return `
         <div class="history-item" onclick="openSessionDetail('${s.id}')" title="Voir le détail">
           <div class="history-date">${date}</div>
-          <div class="history-label">${s.label}</div>
+          <div class="history-label">${noteIcon}${s.label}</div>
           <div class="history-meta">${exCount} exercice${exCount > 1 ? 's' : ''} →</div>
         </div>`;
     }).join('');
@@ -859,14 +1037,30 @@ function renderSessionDetail() {
       <button class="btn-primary" onclick="enableDetailEdit()">✏️ Modifier</button>
     </div>`;
 
+  // Bloc notes (lecture ou édition)
+  const notesBlock = _detailEditing
+    ? `<div class="detail-notes-edit">
+         <label class="session-notes-label">📝 Notes</label>
+         <textarea class="session-notes-textarea" id="detail-notes-input" placeholder="Sensations, douleurs, énergie…" oninput="_detailSession.notes = this.value">${s.notes ?? ''}</textarea>
+       </div>`
+    : (s.notes
+        ? `<div class="detail-notes-view"><div class="detail-notes-icon">📝</div><div class="detail-notes-text">${s.notes.replace(/</g,'&lt;')}</div></div>`
+        : '');
+
   if (logs.length === 0) {
     body.innerHTML = `<p style="color:#6b7280;font-size:13px;margin-bottom:14px">${date}</p>
+      ${notesBlock}
       <p style="color:#9ca3af;text-align:center;padding:20px 0">Aucun exercice enregistré.</p>${actionBar}`;
     return;
   }
 
   const logsHtml = logs.map((log, li) => {
     const sets = log.sets || [];
+    // Mini-chart d'évolution sur cet exercice (poids max par séance)
+    const chartHtml = !_detailEditing && log.exercise_name
+      ? `<div class="detail-mini-chart" id="chart-${li}"></div>`
+      : '';
+    if (chartHtml) setTimeout(() => renderExerciseChart(log.exercise_name, `chart-${li}`), 10);
 
     const setsHtml = sets.map((set, si) => {
       if (!set) return '';
@@ -919,6 +1113,7 @@ function renderSessionDetail() {
           <span class="detail-ex-name">${log.exercise_name}</span>
           ${rmExBtn}
         </div>
+        ${chartHtml}
         <div class="detail-sets">${setsHtml || '<span style="color:#6b7280;font-size:12px">Pas de données</span>'}</div>
         ${addBtn}
       </div>`;
@@ -926,6 +1121,7 @@ function renderSessionDetail() {
 
   body.innerHTML = `
     <p style="color:#6b7280;font-size:13px;margin-bottom:14px">${date}</p>
+    ${notesBlock}
     ${summaryHtml}
     ${logsHtml}
     ${actionBar}`;
@@ -994,6 +1190,11 @@ async function saveSessionDetail() {
       const { error: updErr } = await sb.from('exercise_logs').update({ sets: log.sets }).eq('id', log.id);
       if (updErr) throw updErr;
     }
+    // 3) Update les notes de la séance
+    const { error: noteErr } = await sb.from('sessions')
+      .update({ notes: _detailSession.notes?.trim() || null })
+      .eq('id', _detailSession.id);
+    if (noteErr) throw noteErr;
     showToast('✓ Séance mise à jour');
     _detailEditing = false;
     _detailDeletedLogIds = [];
@@ -1029,6 +1230,39 @@ async function deleteWholeSession() {
   } catch (e) {
     console.error('[FitPlan] deleteWholeSession:', e);
     showToast('❌ ' + (e.message ?? 'Erreur suppression'));
+  }
+}
+
+async function renderExerciseChart(exerciseName, targetId) {
+  const el = document.getElementById(targetId);
+  if (!el || !currentUser) return;
+  try {
+    // Récupère toutes les séances avec ce log d'exercice
+    const { data: sessions } = await sb.from('sessions')
+      .select('created_at, exercise_logs!inner(exercise_name, sets)')
+      .eq('user_id', currentUser.id)
+      .eq('exercise_logs.exercise_name', exerciseName)
+      .order('created_at', { ascending: true })
+      .limit(20);
+
+    const points = [];
+    for (const sess of sessions || []) {
+      let maxW = 0;
+      for (const log of sess.exercise_logs || []) {
+        for (const set of log.sets || []) {
+          if (set?.weight && set.weight > maxW) maxW = set.weight;
+        }
+      }
+      if (maxW > 0) points.push({ x: new Date(sess.created_at).getTime(), y: maxW });
+    }
+    if (points.length < 2) {
+      el.innerHTML = '';
+      return;
+    }
+    el.innerHTML = `<div class="chart-title">📈 Évolution poids max</div>` +
+      renderLineChart(points, { color: '#fb923c', height: 90 });
+  } catch (e) {
+    console.error('[FitPlan] renderExerciseChart:', e);
   }
 }
 
