@@ -527,6 +527,140 @@ select option { background: #1f2937; }
 .pr-edit-btn:hover { border-color: #f97316; color: #f97316; }
 .pr-override-badge { font-size: 11px; margin-left: 4px; opacity: 0.7; }
 
+/* ===== Éditeur de programme ===== */
+.editor-days {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.editor-day {
+  background: #111827; border: 1px solid #1f2937; border-radius: 14px;
+  padding: 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.editor-day-training { border-left: 3px solid #f97316; }
+.editor-day-cardio   { border-left: 3px solid #2dd4bf; }
+.editor-day-rest     { border-left: 3px solid #818cf8; opacity: 0.7; }
+.editor-day-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.editor-day-name { font-weight: 800; color: white; font-size: 15px; }
+.editor-day-type {
+  background: #1f2937; border: 1px solid #374151; border-radius: 8px;
+  color: white; padding: 6px 10px; font-size: 12px; cursor: pointer; outline: none;
+}
+.editor-day-label {
+  width: 100%; background: #1f2937; border: 1px solid #374151; border-radius: 8px;
+  color: white; padding: 9px 12px; font-size: 13px; outline: none;
+}
+.editor-day-label:focus { border-color: #f97316; }
+.editor-ex-list { display: flex; flex-direction: column; gap: 6px; }
+.editor-ex-row {
+  display: flex; align-items: center; gap: 8px;
+  background: #1a2035; border-radius: 8px; padding: 8px 10px;
+}
+.editor-ex-info { flex: 1; min-width: 0; }
+.editor-ex-name { font-size: 13px; color: #f1f5f9; font-weight: 600; }
+.editor-ex-meta { font-size: 11px; color: #6b7280; margin-top: 1px; }
+.editor-ex-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.editor-move-btn, .editor-rm-btn {
+  background: #1f2937; border: 1px solid #374151; color: #9ca3af;
+  width: 26px; height: 26px; border-radius: 6px;
+  font-size: 12px; cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center;
+}
+.editor-move-btn:hover:not(:disabled) { border-color: #f97316; color: #f97316; }
+.editor-move-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.editor-rm-btn:hover { background: rgba(220,38,38,.15); border-color: #dc2626; color: #f87171; }
+.editor-add-ex {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 9px;
+  background: rgba(249,115,22,.08); border: 1px dashed rgba(249,115,22,.4);
+  color: #fb923c; font-weight: 700; font-size: 12px; cursor: pointer;
+  border-radius: 8px; transition: all 0.2s;
+}
+.editor-add-ex:hover { background: rgba(249,115,22,.15); border-color: #f97316; }
+.editor-actions {
+  display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;
+  padding-top: 16px; border-top: 1px solid #1f2937;
+}
+@media (max-width: 480px) {
+  .editor-actions { flex-direction: column-reverse; }
+  .editor-actions button { width: 100%; }
+}
+
+/* ===== Calendrier / Agenda ===== */
+.calendar-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px; gap: 12px;
+}
+.calendar-nav {
+  background: #1f2937; border: 1px solid #374151;
+  color: #d1d5db; width: 38px; height: 38px; border-radius: 10px;
+  font-size: 16px; cursor: pointer; transition: all 0.2s;
+}
+.calendar-nav:hover { border-color: #f97316; color: #f97316; }
+.calendar-month-title { font-size: 20px; font-weight: 800; color: white; text-align: center; flex: 1; }
+.calendar-stats {
+  margin-bottom: 12px; padding: 10px 14px;
+  background: rgba(249,115,22,.06); border-radius: 8px;
+  font-size: 13px; color: #d1d5db; text-align: center;
+}
+.calendar-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+  margin-bottom: 14px;
+}
+.cal-head {
+  text-align: center; font-size: 11px; font-weight: 700; color: #6b7280;
+  padding: 6px 0; text-transform: uppercase;
+}
+.cal-cell {
+  aspect-ratio: 1 / 1;
+  background: #1a2035; border: 1px solid transparent; border-radius: 8px;
+  padding: 6px; display: flex; flex-direction: column; justify-content: space-between;
+  cursor: default; transition: all 0.15s;
+  overflow: hidden;
+}
+.cal-cell[onclick] { cursor: pointer; }
+.cal-cell[onclick]:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,.3); }
+.cal-num { font-size: 12px; font-weight: 700; color: white; }
+.cal-label {
+  font-size: 9px; color: #9ca3af; line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.cal-out      { opacity: 0.25; }
+.cal-today    { border-color: #f97316; box-shadow: 0 0 8px rgba(249,115,22,.3); }
+.cal-done     { background: rgba(22,163,74,.12);  border-color: rgba(22,163,74,.3); }
+.cal-done .cal-num { color: #4ade80; }
+.cal-missed   { background: rgba(220,38,38,.08);  border-color: rgba(220,38,38,.2); }
+.cal-missed .cal-num { color: #f87171; }
+.cal-rest     { background: rgba(99,102,241,.06); border-color: rgba(99,102,241,.15); opacity: 0.6; }
+.cal-rest .cal-num { color: #a5b4fc; }
+.cal-planned  { background: rgba(249,115,22,.06); border-color: rgba(249,115,22,.2); }
+.cal-planned .cal-num { color: #fb923c; }
+
+.calendar-legend {
+  display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;
+  padding-top: 10px; border-top: 1px solid #1f2937;
+  font-size: 11px; color: #9ca3af;
+}
+.cal-legend-item { display: flex; align-items: center; gap: 5px; }
+.cal-legend-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.cal-legend-dot.done    { background: rgba(22,163,74,.4); }
+.cal-legend-dot.planned { background: rgba(249,115,22,.4); }
+.cal-legend-dot.missed  { background: rgba(220,38,38,.3); }
+.cal-legend-dot.rest    { background: rgba(99,102,241,.3); }
+
+@media (max-width: 640px) {
+  .cal-label { font-size: 8px; -webkit-line-clamp: 1; }
+  .cal-num   { font-size: 11px; }
+  .cal-cell  { padding: 4px; }
+}
+@media (max-width: 380px) {
+  .cal-label { display: none; }
+  .cal-cell  { aspect-ratio: 1 / 1.1; }
+}
+
 /* ===== Toast ===== */
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);

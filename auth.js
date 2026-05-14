@@ -15,7 +15,7 @@ let _initialSessionSeen  = false; // Supabase v2 émet un SIGNED_IN bidon au ref
 // ── Démarrage ─────────────────────────────────────
 // Si le hash indique que l'utilisateur était connecté, on affiche le spinner
 // pendant que Supabase rafraîchit le JWT et qu'on charge le profil.
-if (location.hash === '#dashboard' || location.hash === '#profile') {
+if (['#dashboard', '#profile', '#agenda'].includes(location.hash)) {
   document.getElementById('view-onboarding')?.classList.add('hidden');
   document.getElementById('view-loading')?.classList.remove('hidden');
 }
@@ -87,6 +87,7 @@ function resetState() {
   state.exerciseSwaps = {};
   state.daySwaps      = [0, 1, 2, 3, 4, 5, 6];
   state.customExercises = [];
+  state.customProgramme = null;
 
   const ageEl    = document.getElementById('age');
   const tailleEl = document.getElementById('taille');
@@ -255,6 +256,9 @@ async function loadProfile() {
     if (data.prenom) state.prenom = data.prenom;
     if (data.nom)    state.nom    = data.nom;
     if (data.niveau) state.niveau = data.niveau;
+    if (data.custom_programme && Array.isArray(data.custom_programme) && data.custom_programme.length === 7) {
+      state.customProgramme = data.custom_programme;
+    }
     // Fallback : récupère depuis user_metadata si jamais loadProfile arrive avant le 1er save
     if (!state.prenom && currentUser?.user_metadata?.prenom) state.prenom = currentUser.user_metadata.prenom;
     if (!state.nom    && currentUser?.user_metadata?.nom)    state.nom    = currentUser.user_metadata.nom;
@@ -290,7 +294,10 @@ async function loadProfile() {
     renderProfile();
     renderBodyWeightCard();
     document.getElementById('main-nav').classList.remove('hidden');
-    showView('dashboard');
+    const initialView = location.hash === '#profile' ? 'profile'
+                      : location.hash === '#agenda'  ? 'calendar'
+                      : 'dashboard';
+    showView(initialView);
     loadHistory();
     loadLastLogs();
     renderProgression();
@@ -313,6 +320,7 @@ async function saveProfile() {
       prenom: state.prenom, nom: state.nom, niveau: state.niveau,
       genre: state.genre, age: state.age, taille: state.taille, poids: state.poids,
       activite: state.activite, objectif: state.objectif, jours: state.jours,
+      custom_programme: state.customProgramme,
       updated_at: new Date().toISOString(),
     });
     if (error) {
@@ -1272,6 +1280,127 @@ function closeSessionDetail() {
   _detailSession = null;
   _detailEditing = false;
   _detailDeletedLogIds = [];
+}
+
+// ── Agenda / Calendrier ───────────────────────────
+let _calendarDate     = new Date();
+let _calendarSessions = []; // sessions pour le mois affiché
+
+async function renderCalendar() {
+  const titleEl = document.getElementById('calendar-month');
+  const gridEl  = document.getElementById('calendar-grid');
+  const statsEl = document.getElementById('calendar-stats');
+  if (!gridEl) return;
+
+  const year  = _calendarDate.getFullYear();
+  const month = _calendarDate.getMonth();
+  const monthName = _calendarDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  if (titleEl) titleEl.textContent = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+
+  // Charge les sessions du mois
+  const start = new Date(year, month, 1).toISOString();
+  const end   = new Date(year, month + 1, 1).toISOString();
+  try {
+    const { data } = await sb.from('sessions')
+      .select('id, created_at, label, exercise_logs(id)')
+      .eq('user_id', currentUser.id)
+      .gte('created_at', start).lt('created_at', end)
+      .order('created_at', { ascending: true });
+    _calendarSessions = data || [];
+  } catch (e) {
+    console.error('[FitPlan] calendar sessions:', e);
+    _calendarSessions = [];
+  }
+
+  // Index sessions par date locale YYYY-MM-DD
+  const byDate = {};
+  for (const s of _calendarSessions) {
+    const d = new Date(s.created_at);
+    const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    (byDate[k] = byDate[k] || []).push(s);
+  }
+
+  // Programme actuel pour les jours du mois
+  const programme = (typeof getCustomProgramme === 'function') ? getCustomProgramme() : [];
+
+  // Premier jour de la grille = lundi de la semaine du 1er du mois
+  const firstOfMonth = new Date(year, month, 1);
+  const firstDow = (firstOfMonth.getDay() + 6) % 7; // 0 = lundi
+  const gridStart = new Date(year, month, 1 - firstDow);
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const cells = [];
+  // En-têtes jours
+  ['L','M','M','J','V','S','D'].forEach(d => {
+    cells.push(`<div class="cal-head">${d}</div>`);
+  });
+
+  let doneInMonth = 0, plannedInMonth = 0;
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(gridStart);
+    d.setDate(gridStart.getDate() + i);
+    d.setHours(0,0,0,0);
+    const inMonth = d.getMonth() === month;
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const sessions = byDate[key] || [];
+    const isToday = d.getTime() === today.getTime();
+    const isPast  = d < today;
+    const dayIdx  = (d.getDay() + 6) % 7;
+    const prog    = programme[dayIdx];
+    const isRest  = prog?.type === 'rest';
+
+    let status, label;
+    if (sessions.length > 0) {
+      status = 'done';
+      label  = sessions.map(s => s.label).join(' · ');
+      if (inMonth) doneInMonth++;
+    } else if (isRest) {
+      status = 'rest';
+      label  = 'Repos';
+    } else if (isPast) {
+      status = 'missed';
+      label  = prog?.label || 'Manqué';
+    } else {
+      status = 'planned';
+      label  = prog?.label || 'Séance';
+    }
+
+    if (inMonth && !isRest) plannedInMonth++;
+
+    const click = sessions.length === 1
+      ? `onclick="openSessionDetail('${sessions[0].id}')"`
+      : sessions.length > 1
+      ? `onclick="openCalendarDayPicker('${key}')"`
+      : '';
+
+    cells.push(`
+      <div class="cal-cell cal-${status} ${isToday ? 'cal-today' : ''} ${inMonth ? '' : 'cal-out'}" ${click}>
+        <div class="cal-num">${d.getDate()}</div>
+        <div class="cal-label">${label}</div>
+      </div>`);
+  }
+
+  gridEl.innerHTML = cells.join('');
+  if (statsEl) {
+    statsEl.innerHTML = `<span>✅ ${doneInMonth} séance${doneInMonth > 1 ? 's' : ''} effectuée${doneInMonth > 1 ? 's' : ''} ce mois</span>`;
+  }
+}
+
+function changeCalendarMonth(delta) {
+  _calendarDate = new Date(_calendarDate.getFullYear(), _calendarDate.getMonth() + delta, 1);
+  renderCalendar();
+}
+
+function openCalendarDayPicker(dateKey) {
+  const sessions = _calendarSessions.filter(s => {
+    const d = new Date(s.created_at);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` === dateKey;
+  });
+  if (sessions.length === 1) return openSessionDetail(sessions[0].id);
+  // Choisir parmi plusieurs
+  const choice = sessions.map((s, i) => `${i+1}. ${s.label}`).join('\n');
+  const idx = parseInt(prompt(`Plusieurs séances ce jour. Laquelle ouvrir ?\n\n${choice}\n\nEntre le numéro :`, '1'));
+  if (idx && sessions[idx - 1]) openSessionDetail(sessions[idx - 1].id);
 }
 
 // ── Toast ─────────────────────────────────────────

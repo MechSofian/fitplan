@@ -9,7 +9,7 @@
   <title>FitPlan — Programme Personnalisé</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="stylesheet" href="style.css?v=20" />
+  <link rel="stylesheet" href="style.css?v=21" />
   <script>
     tailwind.config = {
       theme: { extend: { colors: { brand: { 500: '#f97316', 600: '#ea580c' } } } }
@@ -29,6 +29,7 @@
       <!-- Nav (visible quand connecté + profil) -->
       <nav id="main-nav" class="hidden flex items-center gap-1 ml-6">
         <button class="nav-btn active" id="nav-programme" onclick="showView('dashboard')">Programme</button>
+        <button class="nav-btn" id="nav-agenda" onclick="showView('calendar')">Agenda</button>
         <button class="nav-btn" id="nav-profil" onclick="showView('profile')">Mon Profil</button>
       </nav>
 
@@ -192,7 +193,10 @@
             <h2 class="text-xl font-bold flex items-center gap-2"><span>📋</span> Programme de la semaine</h2>
             <div id="split-label" class="split-badge mt-2"></div>
           </div>
-          <button class="btn-log" onclick="startSession()">+ Démarrer une séance</button>
+          <div class="flex gap-2 flex-wrap">
+            <button class="btn-secondary" style="padding:8px 14px;font-size:13px" onclick="openProgrammeEditor()">🛠️ Personnaliser</button>
+            <button class="btn-log" onclick="startSession()">+ Démarrer une séance</button>
+          </div>
         </div>
         <div id="week-grid" class="week-grid-7"></div>
       </div>
@@ -239,6 +243,48 @@
       </div>
 
     </div><!-- /dashboard -->
+
+    <!-- ── AGENDA / CALENDRIER ─────────────────────────── -->
+    <div id="view-calendar" class="hidden">
+      <div class="flex items-center justify-between mb-8 flex-wrap gap-4">
+        <div>
+          <h1 class="text-3xl font-bold">📅 Agenda</h1>
+          <p class="text-gray-400 mt-1">Visualise tes séances passées et à venir.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="calendar-header">
+          <button class="calendar-nav" onclick="changeCalendarMonth(-1)">←</button>
+          <h2 id="calendar-month" class="calendar-month-title">—</h2>
+          <button class="calendar-nav" onclick="changeCalendarMonth(1)">→</button>
+        </div>
+        <div id="calendar-stats" class="calendar-stats"></div>
+        <div id="calendar-grid" class="calendar-grid"></div>
+        <div class="calendar-legend">
+          <span class="cal-legend-item"><span class="cal-legend-dot done"></span> Séance faite</span>
+          <span class="cal-legend-item"><span class="cal-legend-dot planned"></span> Prévue</span>
+          <span class="cal-legend-item"><span class="cal-legend-dot missed"></span> Manquée</span>
+          <span class="cal-legend-item"><span class="cal-legend-dot rest"></span> Repos</span>
+        </div>
+      </div>
+    </div><!-- /calendar -->
+
+    <!-- ── ÉDITEUR PROGRAMME ───────────────────────────── -->
+    <div id="view-programme-editor" class="hidden">
+      <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
+        <div>
+          <h1 class="text-3xl font-bold">🛠️ Personnaliser mon programme</h1>
+          <p class="text-gray-400 mt-1">Modifie chaque jour à ta convenance. Tu peux toujours revenir au programme automatique.</p>
+        </div>
+      </div>
+      <div id="editor-days" class="editor-days"></div>
+      <div class="editor-actions">
+        <button class="btn-secondary detail-danger" onclick="resetCustomProgramme()">↺ Programme automatique</button>
+        <button class="btn-secondary" onclick="cancelProgrammeEdit()">Annuler</button>
+        <button class="btn-primary" onclick="saveCustomProgrammeAction()">✓ Enregistrer</button>
+      </div>
+    </div><!-- /editor -->
 
     <!-- ── PROFIL ──────────────────────────────────────── -->
     <div id="view-profile" class="hidden">
@@ -347,7 +393,7 @@
       <h3 class="modal-title">Remplacer l'exercice</h3>
       <p id="swap-ex-current" style="font-size:12px;color:#9ca3af;margin-bottom:16px"></p>
       <div id="swap-ex-list" style="max-height:55vh;overflow-y:auto;margin-bottom:14px"></div>
-      <button class="btn-secondary w-full" onclick="resetExSwap()">↺ Restaurer l'original</button>
+      <button class="btn-secondary w-full" id="swap-ex-reset-btn" onclick="resetExSwap()">↺ Restaurer l'original</button>
     </div>
   </div>
 
@@ -481,7 +527,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=20"></script>
-  <script src="auth.js?v=20"></script>
+  <script src="app.js?v=21"></script>
+  <script src="auth.js?v=21"></script>
 </body>
 </html>

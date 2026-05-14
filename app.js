@@ -14,6 +14,7 @@ const state = {
   exerciseSwaps: {},                 // { 'Nom exo original': {nom, sets, muscle} }
   daySwaps: [0, 1, 2, 3, 4, 5, 6],   // permutation des jours : slot i affiche le prog de daySwaps[i]
   customExercises: [],               // [{nom, sets, muscle}] — exercices créés par l'utilisateur
+  customProgramme: null,             // null = auto, sinon array de 7 jours {type, label, exercices[]}
 };
 
 // ═══ Rest timer ═════════════════════════════════════
@@ -221,20 +222,23 @@ function saveCustomizations() {
 
 // ── View management ───────────────────────────────
 function showView(name) {
-  ['loading', 'onboarding', 'dashboard', 'profile'].forEach(v => {
+  ['loading', 'onboarding', 'dashboard', 'profile', 'calendar', 'programme-editor'].forEach(v => {
     document.getElementById(`view-${v}`)?.classList.toggle('hidden', v !== name);
   });
 
-  const navProg = document.getElementById('nav-programme');
-  const navProf = document.getElementById('nav-profil');
-  if (navProg && navProf) {
-    navProg.classList.toggle('active', name === 'dashboard');
-    navProf.classList.toggle('active', name === 'profile');
-  }
+  const navProg   = document.getElementById('nav-programme');
+  const navProf   = document.getElementById('nav-profil');
+  const navAgenda = document.getElementById('nav-agenda');
+  if (navProg) navProg.classList.toggle('active', name === 'dashboard');
+  if (navProf) navProf.classList.toggle('active', name === 'profile');
+  if (navAgenda) navAgenda.classList.toggle('active', name === 'calendar');
 
-  if (name === 'dashboard') history.replaceState(null, '', '#dashboard');
-  else if (name === 'profile') history.replaceState(null, '', '#profile');
-  else history.replaceState(null, '', location.pathname);
+  if (name === 'dashboard')      history.replaceState(null, '', '#dashboard');
+  else if (name === 'profile')   history.replaceState(null, '', '#profile');
+  else if (name === 'calendar')  history.replaceState(null, '', '#agenda');
+  else                            history.replaceState(null, '', location.pathname);
+
+  if (name === 'calendar') renderCalendar();
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -576,7 +580,18 @@ const TRAIN = (j,l,ex) => ({ jour:j, type:'training', label:l,     exercices:ex 
 
 // Retourne le programme avec les customizations utilisateur appliquées
 function getCustomProgramme() {
-  const base = buildProgramme(state.objectif, state.jours);
+  // Si l'utilisateur a un programme 100% perso, on l'utilise comme base
+  let base;
+  if (Array.isArray(state.customProgramme) && state.customProgramme.length === 7) {
+    base = state.customProgramme.map((d, i) => ({
+      jour: D[i],
+      type: d.type || 'training',
+      label: d.label || (d.type === 'rest' ? 'Repos' : d.type === 'cardio' ? 'Cardio' : 'Séance'),
+      exercices: Array.isArray(d.exercices) ? d.exercices : [],
+    }));
+  } else {
+    base = buildProgramme(state.objectif, state.jours);
+  }
   if (!base.length) return [];
   // 1. Swap des jours
   const swapped = state.daySwaps.map((origIdx, slotIdx) => {
@@ -871,12 +886,16 @@ const MUSCLE_GROUPS = {
 function openSwapEx(exName) {
   _swapExTarget = exName;
   const list = document.getElementById('swap-ex-list');
-  const current = state.exerciseSwaps[exName];
+  const isPicker = _exPickerCallback != null;
+  const current = isPicker ? null : state.exerciseSwaps[exName];
   const currentNom = current?.nom ?? exName;
 
-  document.getElementById('swap-ex-current').textContent = current
-    ? `Actuel : ${current.nom}  ·  Original : ${exName}`
-    : `Original : ${exName}`;
+  // Adapter le titre et la ligne contextuelle selon le mode
+  const titleEl = document.querySelector('#swap-ex-modal .modal-title');
+  if (titleEl) titleEl.textContent = isPicker ? 'Choisir un exercice' : 'Remplacer l\'exercice';
+  document.getElementById('swap-ex-current').textContent = isPicker
+    ? 'Sélectionne un exercice à ajouter'
+    : (current ? `Actuel : ${current.nom}  ·  Original : ${exName}` : `Original : ${exName}`);
 
   // Bouton "créer mon propre exercice" en haut
   const createBtn = `
@@ -920,13 +939,23 @@ function openSwapEx(exName) {
 
   list.innerHTML = createBtn + customHtml + stdHtml;
 
+  const resetBtn = document.getElementById('swap-ex-reset-btn');
+  if (resetBtn) resetBtn.style.display = isPicker ? 'none' : '';
+
   document.getElementById('swap-ex-modal').classList.remove('hidden');
   document.body.style.overflow = 'hidden';
 }
 function applyExSwap(newName, group) {
-  if (!_swapExTarget) return;
   const newEx = EX[group]?.find(e => e.nom === newName);
   if (!newEx) return;
+  // Mode picker (éditeur de programme)
+  if (_exPickerCallback) {
+    _exPickerCallback({ ...newEx });
+    _exPickerCallback = null;
+    closeSwapExModal();
+    return;
+  }
+  if (!_swapExTarget) return;
   if (newEx.nom === _swapExTarget) delete state.exerciseSwaps[_swapExTarget];
   else                              state.exerciseSwaps[_swapExTarget] = newEx;
   saveCustomizations();
@@ -935,9 +964,15 @@ function applyExSwap(newName, group) {
   showToast('✓ Exercice mis à jour');
 }
 function applyCustomExSwap(idx) {
-  if (!_swapExTarget) return;
   const ex = state.customExercises[idx];
   if (!ex) return;
+  if (_exPickerCallback) {
+    _exPickerCallback({ ...ex });
+    _exPickerCallback = null;
+    closeSwapExModal();
+    return;
+  }
+  if (!_swapExTarget) return;
   state.exerciseSwaps[_swapExTarget] = ex;
   saveCustomizations();
   renderDashboard();
@@ -1028,6 +1063,138 @@ function resetPROverride() {
   showToast('✓ Record auto restauré');
 }
 
+// ═══ Éditeur de programme ════════════════════════════
+let _editorProgramme = null;   // brouillon de travail (7 jours)
+let _exPickerCallback = null;  // si défini, openSwapEx devient un picker
+
+function openProgrammeEditor() {
+  // Initialise le brouillon à partir du programme actuel
+  const current = state.customProgramme ?? buildProgramme(state.objectif, state.jours);
+  _editorProgramme = D.map((dayName, i) => {
+    const d = current[i] || { type:'rest', label:'Repos', exercices:[] };
+    return {
+      type:      d.type || 'training',
+      label:     d.label || (d.type === 'rest' ? 'Repos' : d.type === 'cardio' ? 'Cardio' : 'Séance'),
+      exercices: Array.isArray(d.exercices) ? d.exercices.map(e => ({...e})) : [],
+    };
+  });
+  showView('programme-editor');
+  renderProgrammeEditor();
+}
+
+function cancelProgrammeEdit() {
+  _editorProgramme = null;
+  showView('dashboard');
+}
+
+function renderProgrammeEditor() {
+  const wrap = document.getElementById('editor-days');
+  if (!_editorProgramme) return;
+  wrap.innerHTML = _editorProgramme.map((day, i) => {
+    const safeLabel = (day.label || '').replace(/"/g, '&quot;');
+    const exHtml = (day.type === 'rest')
+      ? '<p style="color:#6b7280;font-size:13px;padding:8px 0;text-align:center">Jour de repos</p>'
+      : (day.exercices.length === 0
+          ? '<p style="color:#6b7280;font-size:13px;padding:8px 0;text-align:center">Aucun exercice</p>'
+          : day.exercices.map((ex, ei) => `
+            <div class="editor-ex-row">
+              <div class="editor-ex-info">
+                <div class="editor-ex-name">${ex.nom}</div>
+                <div class="editor-ex-meta">${ex.sets ?? '3×10'}${ex.muscle ? ' · ' + ex.muscle : ''}</div>
+              </div>
+              <div class="editor-ex-actions">
+                <button class="editor-move-btn" onclick="editorMoveExercise(${i},${ei},-1)" ${ei === 0 ? 'disabled' : ''} title="Monter">↑</button>
+                <button class="editor-move-btn" onclick="editorMoveExercise(${i},${ei},1)"  ${ei === day.exercices.length - 1 ? 'disabled' : ''} title="Descendre">↓</button>
+                <button class="editor-rm-btn"   onclick="editorRemoveExercise(${i},${ei})" title="Retirer">✕</button>
+              </div>
+            </div>`).join(''));
+
+    return `
+      <div class="editor-day editor-day-${day.type}">
+        <div class="editor-day-head">
+          <span class="editor-day-name">${D[i]}</span>
+          <select class="editor-day-type" onchange="editorSetType(${i}, this.value)">
+            <option value="training" ${day.type === 'training' ? 'selected' : ''}>Entraînement</option>
+            <option value="cardio"   ${day.type === 'cardio'   ? 'selected' : ''}>Cardio</option>
+            <option value="rest"     ${day.type === 'rest'     ? 'selected' : ''}>Repos</option>
+          </select>
+        </div>
+        ${day.type !== 'rest' ? `
+          <input type="text" class="editor-day-label" placeholder="Libellé (ex: Push, Lower A...)" value="${safeLabel}" oninput="editorSetLabel(${i}, this.value)"/>
+          <div class="editor-ex-list">${exHtml}</div>
+          <button class="editor-add-ex" onclick="editorPickExercise(${i})">＋ Ajouter un exercice</button>
+        ` : ''}
+      </div>`;
+  }).join('');
+}
+
+function editorSetType(i, type) {
+  if (!_editorProgramme) return;
+  _editorProgramme[i].type = type;
+  if (type === 'rest') {
+    _editorProgramme[i].label = 'Repos';
+    _editorProgramme[i].exercices = [];
+  } else if (type === 'cardio' && !_editorProgramme[i].exercices.length) {
+    _editorProgramme[i].label = _editorProgramme[i].label || 'Cardio';
+  } else if (type === 'training' && _editorProgramme[i].label === 'Repos') {
+    _editorProgramme[i].label = 'Séance';
+  }
+  renderProgrammeEditor();
+}
+function editorSetLabel(i, value) {
+  if (!_editorProgramme) return;
+  _editorProgramme[i].label = value;
+}
+function editorRemoveExercise(i, ei) {
+  if (!_editorProgramme) return;
+  _editorProgramme[i].exercices.splice(ei, 1);
+  renderProgrammeEditor();
+}
+function editorMoveExercise(i, ei, dir) {
+  if (!_editorProgramme) return;
+  const arr = _editorProgramme[i].exercices;
+  const target = ei + dir;
+  if (target < 0 || target >= arr.length) return;
+  [arr[ei], arr[target]] = [arr[target], arr[ei]];
+  renderProgrammeEditor();
+}
+function editorPickExercise(i) {
+  _exPickerCallback = (ex) => {
+    _editorProgramme[i].exercices.push({ ...ex });
+    renderProgrammeEditor();
+  };
+  // Réutilise la modal swap-ex en mode picker
+  openSwapEx('__PICKER__');
+}
+
+async function saveCustomProgrammeAction() {
+  if (!_editorProgramme) return;
+  state.customProgramme = _editorProgramme.map(d => ({
+    type: d.type, label: d.label, exercices: d.exercices,
+  }));
+  if (typeof saveProfile === 'function') {
+    try { await saveProfile(); } catch {}
+  }
+  _editorProgramme = null;
+  renderDashboard();
+  renderProfile();
+  showView('dashboard');
+  showToast('✓ Programme personnalisé enregistré');
+}
+
+async function resetCustomProgramme() {
+  if (!confirm('Revenir au programme automatique et perdre les personnalisations ?')) return;
+  state.customProgramme = null;
+  if (typeof saveProfile === 'function') {
+    try { await saveProfile(); } catch {}
+  }
+  _editorProgramme = null;
+  renderDashboard();
+  renderProfile();
+  showView('dashboard');
+  showToast('✓ Programme automatique restauré');
+}
+
 // ═══ Création d'un exercice perso ═══════════════════
 function openCreateExModal() {
   document.getElementById('create-ex-modal').classList.remove('hidden');
@@ -1083,6 +1250,7 @@ function closeSwapExModal() {
   document.getElementById('swap-ex-modal').classList.add('hidden');
   document.body.style.overflow = '';
   _swapExTarget = null;
+  _exPickerCallback = null;
 }
 
 // ═══ Swap Jour ═══════════════════════════════════════
