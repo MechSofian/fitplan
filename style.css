@@ -906,6 +906,62 @@ body.theme-light .focus-input-box input { color: #111827; }
 body.theme-light .focus-set-bar { background: #ffffff; border-color: #e5e7eb; color: #4b5563; }
 body.theme-light .focus-nav-btn { background: #ffffff; border-color: #d1d5db; color: #374151; }
 
+/* ═══════════════════════════════════════════════════
+   BANNER EMAIL NON CONFIRMÉ
+   ═══════════════════════════════════════════════════ */
+.email-banner {
+  display: flex; align-items: center; gap: 12px;
+  background: linear-gradient(135deg, rgba(251,191,36,.15), rgba(245,158,11,.12));
+  border: 1px solid rgba(245,158,11,.4);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  font-size: 13px; color: #fde68a;
+  flex-wrap: wrap;
+}
+.email-banner-icon { font-size: 18px; flex-shrink: 0; }
+.email-banner-text { flex: 1; min-width: 200px; line-height: 1.4; }
+.email-banner-btn {
+  background: rgba(245,158,11,.2);
+  border: 1px solid rgba(245,158,11,.5);
+  color: #fbbf24; padding: 6px 14px; border-radius: 8px;
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: all 0.2s; white-space: nowrap;
+}
+.email-banner-btn:hover { background: rgba(245,158,11,.35); border-color: #f59e0b; color: #fff; }
+
+body.theme-light .email-banner {
+  background: #fef3c7;
+  border-color: #fbbf24;
+  color: #92400e;
+}
+body.theme-light .email-banner-btn { color: #92400e; background: rgba(245,158,11,.2); }
+
+/* ═══════════════════════════════════════════════════
+   SETTINGS MODAL
+   ═══════════════════════════════════════════════════ */
+.settings-section {
+  padding: 16px 0;
+  border-bottom: 1px solid #1f2937;
+}
+.settings-section:last-child { border-bottom: none; padding-bottom: 0; }
+.settings-section-title {
+  font-size: 11px; font-weight: 700; color: #9ca3af;
+  text-transform: uppercase; letter-spacing: .05em;
+  margin-bottom: 12px;
+}
+.settings-row {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; flex-wrap: wrap;
+}
+.settings-value { font-size: 14px; font-weight: 700; color: #f1f5f9; }
+.settings-meta  { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+.settings-danger { background: rgba(220,38,38,.04); border-radius: 10px; padding: 14px; margin-top: 8px; border: 1px solid rgba(220,38,38,.15); }
+
+body.theme-light .settings-section { border-color: #e5e7eb; }
+body.theme-light .settings-value { color: #111827; }
+body.theme-light .settings-danger { background: #fef2f2; border-color: #fecaca; }
+
 /* ===== Toast ===== */
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);

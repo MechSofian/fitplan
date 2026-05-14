@@ -17,7 +17,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=28" />
+  <link rel="stylesheet" href="style.css?v=29" />
   <script>
     tailwind.config = {
       theme: { extend: { colors: { brand: { 500: '#f97316', 600: '#ea580c' } } } }
@@ -188,6 +188,13 @@
 
     </div><!-- /onboarding -->
 
+    <!-- Banner email non confirmé (global, visible sur le dashboard et profil) -->
+    <div id="email-confirm-banner" class="email-banner hidden">
+      <span class="email-banner-icon">⚠️</span>
+      <span class="email-banner-text">Ton email n'est pas encore confirmé — clique sur le lien dans le mail reçu pour sécuriser ton compte.</span>
+      <button class="email-banner-btn" onclick="resendConfirmation()">Renvoyer</button>
+    </div>
+
     <!-- ── DASHBOARD ───────────────────────────────────── -->
     <div id="view-dashboard" class="hidden">
 
@@ -329,6 +336,7 @@
             <button class="theme-toggle-btn" data-theme="light" onclick="applyTheme('light')" title="Clair">☀️</button>
           </div>
           <button class="btn-secondary" style="padding:8px 12px" onclick="startTutorial()" title="Relancer le tutoriel">🎓</button>
+          <button class="btn-secondary" style="padding:8px 12px" onclick="openSettingsModal()" title="Paramètres du compte">⚙️</button>
           <button class="btn-primary" onclick="editProgram()">✏️ Modifier le programme</button>
         </div>
       </div>
@@ -455,6 +463,66 @@
       <p id="swap-ex-current" style="font-size:12px;color:#9ca3af;margin-bottom:16px"></p>
       <div id="swap-ex-list" style="max-height:55vh;overflow-y:auto;margin-bottom:14px"></div>
       <button class="btn-secondary w-full" id="swap-ex-reset-btn" onclick="resetExSwap()">↺ Restaurer l'original</button>
+    </div>
+  </div>
+
+  <!-- Paramètres du compte -->
+  <div id="settings-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeSettingsModal()"></div>
+    <div class="modal-card" style="max-width:480px">
+      <button class="modal-close" onclick="closeSettingsModal()">✕</button>
+      <h3 class="modal-title">⚙️ Paramètres du compte</h3>
+
+      <!-- Identité -->
+      <div class="settings-section">
+        <div class="settings-section-title">Identité</div>
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div class="field-group"><label>Prénom</label><div class="input-with-unit" style="margin-top:6px"><input type="text" id="set-prenom" style="padding:10px 14px"/></div></div>
+          <div class="field-group"><label>Nom</label><div class="input-with-unit" style="margin-top:6px"><input type="text" id="set-nom" style="padding:10px 14px"/></div></div>
+        </div>
+        <button class="btn-primary w-full" style="padding:10px;font-size:13px" onclick="saveIdentityChanges()">Mettre à jour</button>
+      </div>
+
+      <!-- Email -->
+      <div class="settings-section">
+        <div class="settings-section-title">Email</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-value" id="set-email-current">—</div>
+            <div class="settings-meta" id="set-confirmed"></div>
+          </div>
+          <button class="btn-secondary" style="padding:8px 14px;font-size:12px" onclick="changeEmailFlow()">Changer</button>
+        </div>
+      </div>
+
+      <!-- Mot de passe -->
+      <div class="settings-section">
+        <div class="settings-section-title">Mot de passe</div>
+        <div class="settings-row">
+          <div class="settings-meta">Modifié à la dernière connexion</div>
+          <button class="btn-secondary" style="padding:8px 14px;font-size:12px" onclick="changePasswordFlow()">Modifier</button>
+        </div>
+      </div>
+
+      <!-- Danger zone -->
+      <div class="settings-section settings-danger">
+        <div class="settings-section-title" style="color:#f87171">Zone dangereuse</div>
+        <p class="settings-meta" style="margin-bottom:10px">La suppression efface définitivement ton compte, ton historique, tes records et toutes tes mesures. Aucun retour possible.</p>
+        <button class="btn-secondary detail-danger w-full" onclick="deleteAccountFlow()">🗑 Supprimer mon compte</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Définir un nouveau mot de passe (après reset email) -->
+  <div id="set-pwd-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-card" style="max-width:400px">
+      <h3 class="modal-title">🔑 Nouveau mot de passe</h3>
+      <p style="font-size:13px;color:#9ca3af;margin-bottom:16px">Choisis un nouveau mot de passe pour ton compte.</p>
+      <div class="field-group mb-3"><label>Nouveau mot de passe</label><div class="input-with-unit" style="margin-top:6px"><input type="password" id="set-pwd-input" placeholder="••••••••" style="padding:12px 16px"/></div></div>
+      <div class="field-group mb-4"><label>Confirmation</label><div class="input-with-unit" style="margin-top:6px"><input type="password" id="set-pwd-input2" placeholder="••••••••" style="padding:12px 16px"/></div></div>
+      <div id="set-pwd-error" class="hidden mb-4 text-red-400 text-sm bg-red-900/30 px-4 py-2 rounded-lg"></div>
+      <button class="btn-primary w-full" onclick="submitNewPassword()">✓ Valider</button>
     </div>
   </div>
 
@@ -588,7 +656,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=28"></script>
-  <script src="auth.js?v=28"></script>
+  <script src="app.js?v=29"></script>
+  <script src="auth.js?v=29"></script>
 </body>
 </html>

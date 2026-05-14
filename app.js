@@ -1966,6 +1966,7 @@ document.addEventListener('keydown', e => {
     closeBodyWeightModal();
     if (!document.getElementById('focus-overlay')?.classList.contains('hidden')) exitFocusMode();
     if (document.getElementById('tutorial-wrap') || document.getElementById('tutorial-overlay')) endTutorial();
+    if (!document.getElementById('settings-modal')?.classList.contains('hidden')) closeSettingsModal();
   }
 });
 

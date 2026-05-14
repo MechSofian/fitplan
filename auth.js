@@ -30,6 +30,13 @@ sb.auth.onAuthStateChange(async (event, session) => {
     return;
   }
 
+  // Récupération de mot de passe : Supabase a établi une session temporaire
+  // pour permettre la mise à jour. On affiche la modal de définition.
+  if (event === 'PASSWORD_RECOVERY') {
+    setTimeout(() => openSetPasswordModal(), 200);
+    return;
+  }
+
   // Supabase v2 émet parfois SIGNED_IN AVANT INITIAL_SESSION au refresh,
   // mais le JWT n'est pas encore prêt → la requête hang. On l'ignore et
   // on attend INITIAL_SESSION qui fire juste après avec un état stable.
@@ -132,11 +139,22 @@ function closeAuthModal() {
 
 function switchAuthTab(tab) {
   document.querySelectorAll('.auth-tab').forEach((t, i) => {
-    t.classList.toggle('active', (i === 0) === (tab === 'login'));
+    // login & reset partagent l'onglet 0 (Connexion), signup l'onglet 1
+    t.classList.toggle('active', (i === 0) === (tab !== 'signup'));
   });
+  if (tab === 'reset') {
+    document.getElementById('auth-form-area').innerHTML = `
+      <p style="font-size:13px;color:#9ca3af;margin-bottom:14px;text-align:center">Reçois un lien par email pour redéfinir ton mot de passe.</p>
+      <div class="field-group mb-6"><label>Email</label><div class="input-with-unit" style="margin-top:6px"><input type="email" id="auth-email" placeholder="toi@email.com" style="padding:12px 16px"/></div></div>
+      <div id="auth-error" class="hidden mb-4 text-red-400 text-sm bg-red-900/30 px-4 py-2 rounded-lg"></div>
+      <button class="btn-primary w-full" onclick="sendPasswordReset()">📧 Envoyer le lien</button>
+      <p class="text-center text-gray-500 text-sm mt-4"><button class="text-orange-400 font-semibold" onclick="switchAuthTab('login')">← Retour à la connexion</button></p>`;
+    return;
+  }
   document.getElementById('auth-form-area').innerHTML = tab === 'login' ? `
     <div class="field-group mb-4"><label>Email</label><div class="input-with-unit" style="margin-top:6px"><input type="email" id="auth-email" placeholder="toi@email.com" style="padding:12px 16px"/></div></div>
-    <div class="field-group mb-6"><label>Mot de passe</label><div class="input-with-unit" style="margin-top:6px"><input type="password" id="auth-pwd" placeholder="••••••••" style="padding:12px 16px"/></div></div>
+    <div class="field-group mb-2"><label>Mot de passe</label><div class="input-with-unit" style="margin-top:6px"><input type="password" id="auth-pwd" placeholder="••••••••" style="padding:12px 16px"/></div></div>
+    <p class="text-right mb-4"><button class="text-xs text-gray-500 hover:text-orange-400" onclick="switchAuthTab('reset')">Mot de passe oublié ?</button></p>
     <div id="auth-error" class="hidden mb-4 text-red-400 text-sm bg-red-900/30 px-4 py-2 rounded-lg"></div>
     <button class="btn-primary w-full" onclick="signIn()">Se connecter</button>
     <p class="text-center text-gray-500 text-sm mt-4">Pas encore de compte ? <button class="text-orange-400 font-semibold" onclick="switchAuthTab('signup')">S'inscrire</button></p>
@@ -167,6 +185,59 @@ async function signIn() {
   } catch (e) {
     console.error('[FitPlan] signIn:', e);
     err.textContent = e.message?.includes('Invalid login') ? 'Email ou mot de passe incorrect.' : `Erreur : ${e.message}`;
+    err.classList.remove('hidden');
+  }
+}
+
+async function sendPasswordReset() {
+  const email = document.getElementById('auth-email').value.trim();
+  const err   = document.getElementById('auth-error');
+  err.classList.add('hidden');
+  if (!email) {
+    err.textContent = 'Email requis.';
+    err.classList.remove('hidden');
+    return;
+  }
+  try {
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname + '#recovery',
+    });
+    if (error) throw error;
+    closeAuthModal();
+    showToast('📧 Email envoyé — vérifie ta boîte (et les spams)');
+  } catch (e) {
+    console.error('[FitPlan] reset:', e);
+    err.textContent = `Erreur : ${e.message}`;
+    err.classList.remove('hidden');
+  }
+}
+
+// ─ Définir un nouveau mot de passe après clic sur le lien email
+function openSetPasswordModal() {
+  document.getElementById('set-pwd-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('set-pwd-input')?.focus(), 50);
+}
+function closeSetPasswordModal() {
+  document.getElementById('set-pwd-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+async function submitNewPassword() {
+  const pwd  = document.getElementById('set-pwd-input').value;
+  const pwd2 = document.getElementById('set-pwd-input2').value;
+  const err  = document.getElementById('set-pwd-error');
+  err.classList.add('hidden');
+  if (!pwd || pwd.length < 6) { err.textContent = 'Min. 6 caractères.'; err.classList.remove('hidden'); return; }
+  if (pwd !== pwd2)            { err.textContent = 'Les mots de passe ne correspondent pas.'; err.classList.remove('hidden'); return; }
+  try {
+    const { error } = await sb.auth.updateUser({ password: pwd });
+    if (error) throw error;
+    closeSetPasswordModal();
+    showToast('✓ Mot de passe mis à jour');
+    // Nettoie le hash de recovery
+    history.replaceState(null, '', location.pathname);
+  } catch (e) {
+    err.textContent = `Erreur : ${e.message}`;
     err.classList.remove('hidden');
   }
 }
@@ -221,6 +292,111 @@ function signOut() {
     console.error('[FitPlan] signOut:', e);
     _expectSignedOut = false;
   });
+}
+
+// ═══ Paramètres du compte ════════════════════════════
+function openSettingsModal() {
+  if (!currentUser) return;
+  document.getElementById('settings-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('set-prenom').value = state.prenom ?? '';
+  document.getElementById('set-nom').value    = state.nom ?? '';
+  document.getElementById('set-email-current').textContent = currentUser.email;
+  document.getElementById('set-confirmed').textContent =
+    currentUser.email_confirmed_at ? '✓ Email confirmé' : '⚠ Email non confirmé';
+  document.getElementById('set-confirmed').style.color =
+    currentUser.email_confirmed_at ? '#4ade80' : '#fbbf24';
+}
+function closeSettingsModal() {
+  document.getElementById('settings-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+async function saveIdentityChanges() {
+  const prenom = document.getElementById('set-prenom').value.trim();
+  const nom    = document.getElementById('set-nom').value.trim();
+  if (!prenom) { showToast('⚠️ Prénom requis'); return; }
+  state.prenom = prenom;
+  state.nom    = nom;
+  try {
+    await saveProfile();
+    renderDashboard();
+    renderProfile();
+    showToast('✓ Identité mise à jour');
+  } catch (e) {
+    showToast('❌ ' + e.message);
+  }
+}
+
+async function changeEmailFlow() {
+  const newEmail = prompt('Nouvel email :', currentUser.email);
+  if (!newEmail || newEmail.trim() === currentUser.email) return;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail.trim())) {
+    showToast('⚠️ Email invalide');
+    return;
+  }
+  try {
+    const { error } = await sb.auth.updateUser({ email: newEmail.trim() });
+    if (error) throw error;
+    showToast('📧 Lien de confirmation envoyé au NOUVEL email');
+  } catch (e) {
+    showToast('❌ ' + e.message);
+  }
+}
+
+async function changePasswordFlow() {
+  const pwd  = prompt('Nouveau mot de passe (min. 6 caractères) :');
+  if (!pwd) return;
+  if (pwd.length < 6) { showToast('⚠️ Min. 6 caractères'); return; }
+  const pwd2 = prompt('Confirme le mot de passe :');
+  if (pwd !== pwd2) { showToast('⚠️ Les mots de passe ne correspondent pas'); return; }
+  try {
+    const { error } = await sb.auth.updateUser({ password: pwd });
+    if (error) throw error;
+    showToast('✓ Mot de passe mis à jour');
+  } catch (e) {
+    showToast('❌ ' + e.message);
+  }
+}
+
+async function deleteAccountFlow() {
+  if (!confirm('⚠️ Supprimer DÉFINITIVEMENT ton compte et TOUTES tes données ?\n\nCette action est IRRÉVERSIBLE.')) return;
+  const confirmWord = prompt('Pour confirmer, tape : SUPPRIMER');
+  if (confirmWord !== 'SUPPRIMER') {
+    showToast('Suppression annulée');
+    return;
+  }
+  try {
+    const { error } = await sb.rpc('delete_user');
+    if (error) throw error;
+    closeSettingsModal();
+    showToast('✓ Compte supprimé. À bientôt !');
+    // Vide le localStorage et déconnecte proprement
+    try {
+      Object.keys(localStorage).filter(k => k.startsWith('sb-') || k.startsWith('fitplan-')).forEach(k => localStorage.removeItem(k));
+    } catch {}
+    setTimeout(() => { sb.auth.signOut(); location.reload(); }, 1500);
+  } catch (e) {
+    console.error('[FitPlan] deleteAccount:', e);
+    showToast('❌ ' + (e.message ?? 'Erreur — la fonction delete_user existe-t-elle ?'));
+  }
+}
+
+// ═══ Banner email non confirmé ═══════════════════════
+async function resendConfirmation() {
+  if (!currentUser) return;
+  try {
+    const { error } = await sb.auth.resend({ type: 'signup', email: currentUser.email });
+    if (error) throw error;
+    showToast('📧 Email de confirmation renvoyé');
+  } catch (e) {
+    showToast('❌ ' + e.message);
+  }
+}
+function updateEmailBanner() {
+  const banner = document.getElementById('email-confirm-banner');
+  if (!banner) return;
+  banner.classList.toggle('hidden', !currentUser || !!currentUser.email_confirmed_at);
 }
 
 // ── Profile persistence ───────────────────────────
@@ -298,6 +474,7 @@ async function loadProfile() {
                       : location.hash === '#agenda'  ? 'calendar'
                       : 'dashboard';
     showView(initialView);
+    updateEmailBanner();
     if (initialView === 'dashboard' && typeof maybeShowTutorial === 'function') maybeShowTutorial();
     await loadHistory();
     loadLastLogs();
