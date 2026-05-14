@@ -683,7 +683,11 @@ async function loadHistory() {
   }
 }
 
-// ── Détail d'une séance passée ────────────────────
+// ── Détail / édition d'une séance passée ──────────
+let _detailSession = null;     // session courante (avec exercise_logs)
+let _detailEditing = false;    // mode lecture vs édition
+let _detailDeletedLogIds = []; // ids des exercise_logs supprimés (à effacer en DB au save)
+
 async function openSessionDetail(sessionId) {
   const modal = document.getElementById('session-detail-modal');
   const body  = document.getElementById('session-detail-body');
@@ -692,6 +696,8 @@ async function openSessionDetail(sessionId) {
   document.body.style.overflow = 'hidden';
   body.innerHTML = '<div class="modal-loading"><div class="spinner"></div><p>Chargement…</p></div>';
   title.textContent = 'Détail de la séance';
+  _detailEditing = false;
+  _detailDeletedLogIds = [];
 
   try {
     const { data: session, error } = await sb.from('sessions')
@@ -699,60 +705,224 @@ async function openSessionDetail(sessionId) {
       .eq('id', sessionId)
       .single();
     if (error) throw error;
-
-    const date = new Date(session.created_at).toLocaleDateString('fr-FR', {
-      weekday:'long', day:'numeric', month:'long', year:'numeric',
-      hour:'2-digit', minute:'2-digit'
-    });
-    title.textContent = session.label || 'Séance';
-
-    const logs = session.exercise_logs || [];
-    if (logs.length === 0) {
-      body.innerHTML = `<p style="color:#6b7280;font-size:13px;margin-bottom:8px">${date}</p>
-        <p style="color:#9ca3af;text-align:center;padding:20px 0">Aucun exercice enregistré.</p>`;
-      return;
-    }
-
-    // Volume total
-    let totalVol = 0, totalSets = 0;
-    logs.forEach(log => (log.sets || []).forEach(set => {
-      if (set?.weight && set?.reps) { totalVol += set.weight * set.reps; totalSets++; }
-    }));
-
-    body.innerHTML = `
-      <p style="color:#6b7280;font-size:13px;margin-bottom:14px">${date}</p>
-      <div class="detail-summary">
-        <div class="detail-stat"><div class="detail-stat-val">${logs.length}</div><div class="detail-stat-lab">Exercices</div></div>
-        <div class="detail-stat"><div class="detail-stat-val">${totalSets}</div><div class="detail-stat-lab">Séries</div></div>
-        <div class="detail-stat"><div class="detail-stat-val">${Math.round(totalVol)}</div><div class="detail-stat-lab">Volume kg·rép</div></div>
-      </div>
-      ${logs.map(log => {
-        const sets = log.sets || [];
-        const setsHtml = sets.map((set, si) => {
-          if (!set) return '';
-          if (set.done !== undefined) {
-            return `<div class="detail-set"><span class="detail-set-num">${si+1}</span><span class="detail-set-val">${set.done ? '✓ Effectué' : '✗ Non effectué'}</span></div>`;
-          }
-          const parts = [];
-          if (set.weight) parts.push(`<span class="detail-set-val">${set.weight} kg</span>`);
-          if (set.reps)   parts.push(`<span class="detail-set-val">${set.reps} rép</span>`);
-          if (!parts.length) return '';
-          return `<div class="detail-set"><span class="detail-set-num">S${si+1}</span>${parts.join('')}</div>`;
-        }).filter(Boolean).join('');
-        return `
-          <div class="detail-exercise">
-            <div class="detail-ex-name">${log.exercise_name}</div>
-            <div class="detail-sets">${setsHtml || '<span style="color:#6b7280;font-size:12px">Pas de données</span>'}</div>
-          </div>`;
-      }).join('')}`;
+    _detailSession = session;
+    renderSessionDetail();
   } catch (e) {
     console.error('[FitPlan] openSessionDetail:', e);
     body.innerHTML = `<p style="color:#9ca3af;text-align:center;padding:20px 0">⚠️ Erreur : ${e.message}</p>`;
   }
 }
+
+function renderSessionDetail() {
+  const body  = document.getElementById('session-detail-body');
+  const title = document.getElementById('session-detail-title');
+  if (!_detailSession) return;
+  const s = _detailSession;
+  const date = new Date(s.created_at).toLocaleDateString('fr-FR', {
+    weekday:'long', day:'numeric', month:'long', year:'numeric',
+    hour:'2-digit', minute:'2-digit',
+  });
+  title.textContent = s.label || 'Séance';
+  const logs = s.exercise_logs || [];
+
+  // Volume / résumé
+  let totalVol = 0, totalSets = 0;
+  logs.forEach(log => (log.sets || []).forEach(set => {
+    if (set?.weight && set?.reps) { totalVol += set.weight * set.reps; totalSets++; }
+  }));
+
+  const summaryHtml = `
+    <div class="detail-summary">
+      <div class="detail-stat"><div class="detail-stat-val">${logs.length}</div><div class="detail-stat-lab">Exercices</div></div>
+      <div class="detail-stat"><div class="detail-stat-val">${totalSets}</div><div class="detail-stat-lab">Séries</div></div>
+      <div class="detail-stat"><div class="detail-stat-val">${Math.round(totalVol)}</div><div class="detail-stat-lab">Volume</div></div>
+    </div>`;
+
+  const actionBar = _detailEditing ? `
+    <div class="detail-action-bar">
+      <button class="btn-secondary" onclick="cancelDetailEdit()">Annuler</button>
+      <button class="btn-primary"   onclick="saveSessionDetail()">✓ Enregistrer</button>
+    </div>` : `
+    <div class="detail-action-bar">
+      <button class="btn-secondary detail-danger" onclick="deleteWholeSession()">🗑 Supprimer</button>
+      <button class="btn-primary" onclick="enableDetailEdit()">✏️ Modifier</button>
+    </div>`;
+
+  if (logs.length === 0) {
+    body.innerHTML = `<p style="color:#6b7280;font-size:13px;margin-bottom:14px">${date}</p>
+      <p style="color:#9ca3af;text-align:center;padding:20px 0">Aucun exercice enregistré.</p>${actionBar}`;
+    return;
+  }
+
+  const logsHtml = logs.map((log, li) => {
+    const sets = log.sets || [];
+
+    const setsHtml = sets.map((set, si) => {
+      if (!set) return '';
+      // Cardio (set.done défini)
+      if (set.done !== undefined) {
+        if (_detailEditing) {
+          return `<div class="detail-set">
+            <span class="detail-set-num">${si+1}</span>
+            <label class="cardio-check-label" style="font-size:13px">
+              <input type="checkbox" ${set.done ? 'checked' : ''} onchange="updateDetailSet(${li},${si},'done',this.checked)" style="width:16px;height:16px;accent-color:#f97316;cursor:pointer"/>
+              <span>Effectué</span>
+            </label>
+          </div>`;
+        }
+        return `<div class="detail-set"><span class="detail-set-num">${si+1}</span><span class="detail-set-val">${set.done ? '✓ Effectué' : '✗ Non effectué'}</span></div>`;
+      }
+      // Sets musculation
+      if (_detailEditing) {
+        return `<div class="detail-set detail-set-edit">
+          <span class="detail-set-num">S${si+1}</span>
+          <div class="input-with-unit" style="flex:1">
+            <input type="number" value="${set.weight ?? ''}" min="0" step="0.5" onchange="updateDetailSet(${li},${si},'weight',this.value)" style="padding:6px 10px;font-size:13px"/>
+            <span>kg</span>
+          </div>
+          <div class="input-with-unit" style="flex:1">
+            <input type="number" value="${set.reps ?? ''}" min="1" onchange="updateDetailSet(${li},${si},'reps',this.value)" style="padding:6px 10px;font-size:13px"/>
+            <span>rép</span>
+          </div>
+          <button class="session-rm-btn" onclick="removeDetailSet(${li},${si})" title="Retirer série">✕</button>
+        </div>`;
+      }
+      const parts = [];
+      if (set.weight) parts.push(`<span class="detail-set-val">${set.weight} kg</span>`);
+      if (set.reps)   parts.push(`<span class="detail-set-val">${set.reps} rép</span>`);
+      if (!parts.length) return '';
+      return `<div class="detail-set"><span class="detail-set-num">S${si+1}</span>${parts.join('')}</div>`;
+    }).filter(Boolean).join('');
+
+    const isCardio = sets.some(s => s?.done !== undefined);
+    const addBtn = _detailEditing && !isCardio
+      ? `<button class="btn-set-toggle" onclick="addDetailSet(${li})" style="margin-top:8px">+ Ajouter une série</button>`
+      : '';
+    const rmExBtn = _detailEditing
+      ? `<button class="session-rm-btn" onclick="removeDetailExercise(${li})" title="Retirer l'exercice">✕</button>`
+      : '';
+
+    return `
+      <div class="detail-exercise">
+        <div class="detail-ex-header">
+          <span class="detail-ex-name">${log.exercise_name}</span>
+          ${rmExBtn}
+        </div>
+        <div class="detail-sets">${setsHtml || '<span style="color:#6b7280;font-size:12px">Pas de données</span>'}</div>
+        ${addBtn}
+      </div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <p style="color:#6b7280;font-size:13px;margin-bottom:14px">${date}</p>
+    ${summaryHtml}
+    ${logsHtml}
+    ${actionBar}`;
+}
+
+function enableDetailEdit() {
+  _detailEditing = true;
+  _detailDeletedLogIds = [];
+  renderSessionDetail();
+}
+
+function cancelDetailEdit() {
+  // Recharge depuis la DB pour rejeter les modifs locales
+  if (_detailSession?.id) openSessionDetail(_detailSession.id);
+}
+
+function updateDetailSet(logIdx, setIdx, field, value) {
+  const log = _detailSession?.exercise_logs?.[logIdx];
+  if (!log) return;
+  log.sets = log.sets || [];
+  log.sets[setIdx] = log.sets[setIdx] || {};
+  if (field === 'done') log.sets[setIdx].done = !!value;
+  else {
+    const v = parseFloat(value);
+    if (isNaN(v) || value === '') delete log.sets[setIdx][field];
+    else log.sets[setIdx][field] = v;
+  }
+}
+
+function removeDetailSet(logIdx, setIdx) {
+  const log = _detailSession?.exercise_logs?.[logIdx];
+  if (!log?.sets) return;
+  log.sets.splice(setIdx, 1);
+  renderSessionDetail();
+}
+
+function addDetailSet(logIdx) {
+  const log = _detailSession?.exercise_logs?.[logIdx];
+  if (!log) return;
+  log.sets = log.sets || [];
+  const last = log.sets[log.sets.length - 1];
+  log.sets.push(last ? { ...last } : { weight: null, reps: null });
+  renderSessionDetail();
+}
+
+function removeDetailExercise(logIdx) {
+  const log = _detailSession?.exercise_logs?.[logIdx];
+  if (!log) return;
+  if (!confirm(`Retirer "${log.exercise_name}" de cette séance ?`)) return;
+  if (log.id) _detailDeletedLogIds.push(log.id);
+  _detailSession.exercise_logs.splice(logIdx, 1);
+  renderSessionDetail();
+}
+
+async function saveSessionDetail() {
+  if (!_detailSession) return;
+  try {
+    // 1) Supprime les exercise_logs marqués
+    if (_detailDeletedLogIds.length) {
+      const { error: delErr } = await sb.from('exercise_logs').delete().in('id', _detailDeletedLogIds);
+      if (delErr) throw delErr;
+    }
+    // 2) Update chaque log restant
+    for (const log of _detailSession.exercise_logs || []) {
+      if (!log.id) continue;
+      const { error: updErr } = await sb.from('exercise_logs').update({ sets: log.sets }).eq('id', log.id);
+      if (updErr) throw updErr;
+    }
+    showToast('✓ Séance mise à jour');
+    _detailEditing = false;
+    _detailDeletedLogIds = [];
+    // Recharge depuis DB pour afficher les valeurs finales
+    await openSessionDetail(_detailSession.id);
+    // Rafraîchit l'historique + progression sur le dashboard
+    loadHistory();
+    loadLastLogs();
+    renderProgression();
+  } catch (e) {
+    console.error('[FitPlan] saveSessionDetail:', e);
+    showToast('❌ ' + (e.message ?? 'Erreur sauvegarde'));
+  }
+}
+
+async function deleteWholeSession() {
+  if (!_detailSession) return;
+  if (!confirm('Supprimer définitivement cette séance ? Cette action est irréversible.')) return;
+  try {
+    // Supprime d'abord les exercise_logs liés (au cas où le cascade n'est pas configuré)
+    await sb.from('exercise_logs').delete().eq('session_id', _detailSession.id);
+    const { error } = await sb.from('sessions').delete().eq('id', _detailSession.id);
+    if (error) throw error;
+    showToast('✓ Séance supprimée');
+    closeSessionDetail();
+    loadHistory();
+    loadLastLogs();
+    renderProgression();
+  } catch (e) {
+    console.error('[FitPlan] deleteWholeSession:', e);
+    showToast('❌ ' + (e.message ?? 'Erreur suppression'));
+  }
+}
+
 function closeSessionDetail() {
   document.getElementById('session-detail-modal').classList.add('hidden');
   document.body.style.overflow = '';
+  _detailSession = null;
+  _detailEditing = false;
+  _detailDeletedLogIds = [];
 }
 
 // ── Toast ─────────────────────────────────────────

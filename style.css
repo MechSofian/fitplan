@@ -396,6 +396,42 @@ select option { background: #1f2937; }
 .detail-set-val { font-size: 13px; color: #f1f5f9; font-weight: 600; }
 .detail-set-val:nth-of-type(2) { color: #f97316; }
 
+/* Mode édition de séance */
+.detail-ex-header {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  margin-bottom: 10px;
+}
+.detail-ex-header .detail-ex-name { margin-bottom: 0; }
+.detail-set-edit {
+  background: #1f2937;
+  padding: 8px 10px;
+}
+.detail-set-edit .input-with-unit input { font-size: 13px; padding: 6px 10px; }
+.detail-action-bar {
+  display: flex; gap: 8px; justify-content: flex-end;
+  margin-top: 18px; padding-top: 14px;
+  border-top: 1px solid #1f2937;
+  flex-wrap: wrap;
+}
+.detail-action-bar .btn-primary,
+.detail-action-bar .btn-secondary {
+  padding: 9px 18px; font-size: 13px;
+}
+.detail-action-bar .detail-danger {
+  color: #f87171; border-color: rgba(220,38,38,.3);
+}
+.detail-action-bar .detail-danger:hover {
+  background: rgba(220,38,38,.1); border-color: #dc2626; color: #fca5a5;
+}
+
+@media (max-width: 480px) {
+  .detail-set-edit { flex-wrap: wrap; }
+  .detail-set-edit .detail-set-num { width: 100%; margin-bottom: 4px; }
+  .detail-action-bar { justify-content: stretch; }
+  .detail-action-bar .btn-primary,
+  .detail-action-bar .btn-secondary { flex: 1; }
+}
+
 /* ===== Niveau buttons (onboarding) ===== */
 .niveau-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .niveau-btn {
