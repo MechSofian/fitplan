@@ -283,7 +283,10 @@ async function signUp() {
   try {
     const { error } = await sb.auth.signUp({
       email, password: pwd,
-      options: { data: { prenom, nom } },
+      options: {
+        data: { prenom, nom },
+        emailRedirectTo: _appBaseURL(),
+      },
     });
     if (error) throw error;
     state.prenom = prenom;
@@ -412,7 +415,11 @@ async function deleteAccountFlow() {
 async function resendConfirmation() {
   if (!currentUser) return;
   try {
-    const { error } = await sb.auth.resend({ type: 'signup', email: currentUser.email });
+    const { error } = await sb.auth.resend({
+      type: 'signup',
+      email: currentUser.email,
+      options: { emailRedirectTo: _appBaseURL() },
+    });
     if (error) throw error;
     showToast('📧 Email de confirmation renvoyé');
   } catch (e) {
