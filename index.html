@@ -17,7 +17,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=30" />
+  <link rel="stylesheet" href="style.css?v=31" />
   <script>
     tailwind.config = {
       theme: { extend: { colors: { brand: { 500: '#f97316', 600: '#ea580c' } } } }
@@ -488,6 +488,37 @@
     </div>
   </div>
 
+  <!-- Choix initial : compte ou invité -->
+  <div id="auth-choice-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-card" style="max-width:520px">
+      <h3 class="modal-title" style="text-align:center">Bienvenue sur FitPlan 👋</h3>
+      <p style="text-align:center;font-size:13px;color:#9ca3af;margin-bottom:20px">Comment veux-tu commencer ?</p>
+
+      <button class="choice-card choice-account" onclick="chooseAccount()">
+        <div class="choice-icon">🔐</div>
+        <div class="choice-title">Créer un compte <span class="choice-badge">RECOMMANDÉ</span></div>
+        <ul class="choice-list">
+          <li>✓ Données sauvegardées dans le cloud</li>
+          <li>✓ Synchro sur tous tes appareils</li>
+          <li>✓ Historique des séances + records perso</li>
+          <li>✓ Aucun risque de perte</li>
+        </ul>
+      </button>
+
+      <button class="choice-card choice-guest" onclick="chooseGuest()">
+        <div class="choice-icon">🌐</div>
+        <div class="choice-title">Continuer sans compte</div>
+        <ul class="choice-list">
+          <li class="choice-warn">⚠ Données stockées <b>uniquement dans ce navigateur</b></li>
+          <li class="choice-warn">⚠ Perte si tu vides le cache ou changes d'appareil</li>
+          <li class="choice-warn">⚠ Pas d'enregistrement de séances</li>
+          <li>Tu pourras créer un compte plus tard</li>
+        </ul>
+      </button>
+    </div>
+  </div>
+
   <!-- Auth -->
   <div id="auth-modal" class="modal hidden">
     <div class="modal-overlay" onclick="closeAuthModal()"></div>
@@ -703,7 +734,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=30"></script>
-  <script src="auth.js?v=30"></script>
+  <script src="app.js?v=31"></script>
+  <script src="auth.js?v=31"></script>
 </body>
 </html>

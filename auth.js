@@ -71,6 +71,8 @@ sb.auth.onAuthStateChange(async (event, session) => {
     } else if (!session?.user && !state.objectif) {
       renderAuthHeader();
       showView('onboarding');
+      // Propose le choix : compte ou invité
+      if (typeof maybeShowAuthChoice === 'function') maybeShowAuthChoice();
     }
   } catch (e) {
     _initialSessionSeen = true;
@@ -195,6 +197,13 @@ async function signIn(btn) {
   }
 }
 
+function _appBaseURL() {
+  let p = location.pathname;
+  if (p.endsWith('index.html')) p = p.slice(0, -10);
+  if (!p.endsWith('/')) p += '/';
+  return location.origin + p;
+}
+
 async function sendPasswordReset() {
   const email = document.getElementById('auth-email').value.trim();
   const err   = document.getElementById('auth-error');
@@ -204,7 +213,7 @@ async function sendPasswordReset() {
   if (btn) { btn.disabled = true; btn.dataset._txt = btn.textContent; btn.textContent = 'Envoi…'; }
   try {
     const { error } = await sb.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + window.location.pathname + '#recovery',
+      redirectTo: _appBaseURL() + '#recovery',
     });
     if (error) throw error;
     closeAuthModal();
@@ -424,8 +433,23 @@ async function loadProfile() {
   try {
     const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
 
-    // PGRST116 = aucune ligne (premier passage) → onboarding normal
+    // PGRST116 = aucune ligne (premier passage)
     if (error && error.code === 'PGRST116') {
+      // Migration des données invité s'il y en avait
+      const migrated = (typeof loadGuestProfile === 'function') && loadGuestProfile();
+      if (migrated && state.objectif) {
+        try {
+          await saveProfile(); // pousse vers Supabase
+          if (typeof clearGuestProfile === 'function') clearGuestProfile();
+        } catch (e) { console.error('[FitPlan] migration guest:', e); }
+        renderDashboard();
+        renderProfile();
+        renderBodyWeightCard();
+        document.getElementById('main-nav').classList.remove('hidden');
+        showView('dashboard');
+        showToast('✓ Tes données ont été synchronisées avec ton compte !');
+        return;
+      }
       goToOnboardingStep(1);
       showView('onboarding');
       return;
@@ -511,7 +535,11 @@ async function loadProfile() {
 }
 
 async function saveProfile() {
-  if (!currentUser) return;
+  if (!currentUser) {
+    // Mode invité : tout en localStorage
+    if (typeof saveGuestProfile === 'function') saveGuestProfile();
+    return;
+  }
 
   try {
     const { error } = await sb.from('profiles').upsert({

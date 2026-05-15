@@ -130,6 +130,41 @@ function maybeShowTutorial() {
   } catch {}
 }
 
+// ═══ Modal de choix initial (compte vs invité) ══════
+function maybeShowAuthChoice() {
+  if (typeof currentUser !== 'undefined' && currentUser) return;
+  try {
+    if (localStorage.getItem('fitplan-auth-choice')) return;
+  } catch {}
+  // Si l'invité a déjà commencé (data en localStorage), charge ses données
+  if (loadGuestProfile() && state.objectif) {
+    renderDashboard();
+    renderProfile();
+    document.getElementById('main-nav')?.classList.remove('hidden');
+    showView('dashboard');
+    return;
+  }
+  setTimeout(() => openAuthChoiceModal(), 250);
+}
+function openAuthChoiceModal() {
+  document.getElementById('auth-choice-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function closeAuthChoiceModal() {
+  document.getElementById('auth-choice-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+function chooseAccount() {
+  try { localStorage.setItem('fitplan-auth-choice', 'account'); } catch {}
+  closeAuthChoiceModal();
+  if (typeof openAuthModal === 'function') openAuthModal('signup');
+}
+function chooseGuest() {
+  try { localStorage.setItem('fitplan-auth-choice', 'guest'); } catch {}
+  closeAuthChoiceModal();
+  // L'utilisateur continue sur l'onboarding ; ses données seront en localStorage
+}
+
 // ═══ Mentions légales ════════════════════════════════
 function openLegalModal() {
   const yearEl = document.getElementById('legal-year');
@@ -778,6 +813,45 @@ function previousISOWeek(weekStr) {
   const lastWeekPrevYear = getISOWeek(new Date(y - 1, 11, 28));
   return lastWeekPrevYear;
 }
+
+// ── Mode invité : persistance complète en localStorage ──
+const GUEST_KEY = 'fitplan-guest';
+function saveGuestProfile() {
+  try {
+    localStorage.setItem(GUEST_KEY, JSON.stringify({
+      prenom: state.prenom, nom: state.nom, niveau: state.niveau,
+      genre: state.genre, age: state.age, taille: state.taille, poids: state.poids,
+      activite: state.activite, objectif: state.objectif, jours: state.jours,
+      customProgramme: state.customProgramme,
+      exerciseSwaps: state.exerciseSwaps,
+      daySwaps: state.daySwaps,
+      customExercises: state.customExercises,
+    }));
+  } catch {}
+}
+function loadGuestProfile() {
+  try {
+    const raw = localStorage.getItem(GUEST_KEY);
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    if (d.prenom)         state.prenom         = d.prenom;
+    if (d.nom)            state.nom            = d.nom;
+    if (d.niveau)         state.niveau         = d.niveau;
+    if (d.genre)          state.genre          = d.genre;
+    if (d.age)            state.age            = d.age;
+    if (d.taille)         state.taille         = d.taille;
+    if (d.poids)          state.poids          = d.poids;
+    if (d.activite)       state.activite       = d.activite;
+    if (d.objectif)       state.objectif       = d.objectif;
+    if (d.jours)          state.jours          = d.jours;
+    if (d.customProgramme) state.customProgramme = d.customProgramme;
+    if (d.exerciseSwaps)   state.exerciseSwaps   = d.exerciseSwaps;
+    if (d.daySwaps)        state.daySwaps        = d.daySwaps;
+    if (d.customExercises) state.customExercises = d.customExercises;
+    return !!d.objectif;
+  } catch { return false; }
+}
+function clearGuestProfile() { try { localStorage.removeItem(GUEST_KEY); } catch {} }
 
 // ── Customizations persistence (localStorage par user) ──
 function _customKey() {
