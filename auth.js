@@ -198,7 +198,20 @@ async function signIn(btn) {
 }
 
 function _appBaseURL() {
-  let p = location.pathname;
+  // 1) Méthode la plus fiable : on utilise l'URL du script auth.js lui-même
+  //    (forcément servi depuis le bon dossier — pas de risque de pathname='/')
+  try {
+    const scripts = document.getElementsByTagName('script');
+    for (let i = scripts.length - 1; i >= 0; i--) {
+      const src = scripts[i].src || '';
+      if (src.includes('auth.js')) {
+        const u = new URL(src, location.href);
+        return u.origin + u.pathname.replace(/auth\.js.*$/, '');
+      }
+    }
+  } catch {}
+  // 2) Fallback : déduit de l'URL courante
+  let p = location.pathname || '/';
   if (p.endsWith('index.html')) p = p.slice(0, -10);
   if (!p.endsWith('/')) p += '/';
   return location.origin + p;
