@@ -1,16 +1,16 @@
 /* FitPlan — Service Worker
    Stratégie : cache-first pour les assets statiques, network-first pour Supabase. */
 
-const VERSION = 'fitplan-v31';
+const VERSION = 'fitplan-v34';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icon.svg',
   './icon-maskable.svg',
-  './style.css?v=31',
-  './app.js?v=31',
-  './auth.js?v=31',
+  './style.css?v=34',
+  './app.js?v=34',
+  './auth.js?v=34',
 ];
 
 self.addEventListener('install', e => {

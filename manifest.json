@@ -2,13 +2,16 @@
   "name": "FitPlan",
   "short_name": "FitPlan",
   "description": "Programme de musculation personnalisé",
-  "start_url": "./",
+  "start_url": "./?source=pwa",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "portrait-primary",
   "background_color": "#030712",
-  "theme_color": "#f97316",
+  "theme_color": "#111827",
   "lang": "fr",
+  "dir": "ltr",
+  "prefer_related_applications": false,
   "categories": ["fitness", "health", "sports"],
   "icons": [
     {

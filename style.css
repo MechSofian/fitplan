@@ -1,8 +1,28 @@
 /* ===== Reset & base ===== */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  /* PWA mobile : couvrir toute la zone d'écran y compris la status bar */
+  min-height: 100vh;
+  min-height: 100dvh; /* dynamic viewport — gère la barre d'adresse mobile */
+}
 .w-full { width: 100%; }
 .hidden { display: none !important; }
+
+/* ─── PWA installée : safe-area pour notch / dynamic island / home bar ─── */
+/* Détection PWA via display-mode: standalone */
+@media all and (display-mode: standalone), all and (display-mode: fullscreen), all and (display-mode: minimal-ui) {
+  body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+  header { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+  main   { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+  footer { padding-bottom: max(32px, env(safe-area-inset-bottom)); }
+  /* Le rest-timer flottant doit aussi respecter la home bar iOS */
+  .rest-timer { bottom: max(20px, env(safe-area-inset-bottom) + 12px); }
+}
+
+/* iOS standalone : retire le scroll bounce blanc en haut/bas */
+html { background: #030712; overscroll-behavior-y: none; }
+body.theme-light, body.theme-light html { background: #f9fafb; }
 
 /* ===== Layout ===== */
 .app-container {
